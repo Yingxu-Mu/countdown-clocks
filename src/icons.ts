@@ -5,6 +5,7 @@ export const EMOJI_OPTIONS = [
   { emoji: '🍅', label: 'Pomodoro' },
   { emoji: '👩‍💻', label: 'Woman technologist' },
   { emoji: '💻', label: 'Laptop' },
+  { emoji: '💼', label: 'Briefcase' },
   { emoji: '🧹', label: 'Chores' },
   { emoji: '🧠', label: 'Deep work' },
   { emoji: '🎯', label: 'Goal' },

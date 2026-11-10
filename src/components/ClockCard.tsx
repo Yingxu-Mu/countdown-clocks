@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Clock } from '../types'
 import { displayRemaining, formatClock, formatLength } from '../time'
 import { ClockIcon } from './ClockIcon'
+import { IconChooser } from './IconChooser'
 
 const SIZE = 120
 const STROKE = 8
@@ -16,11 +17,14 @@ type ClockCardProps = {
   onResume: () => void
   onRestart: () => void
   onDelete: () => void
+  onIconChange: (icon: string) => void
 }
 
-export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete }: ClockCardProps) {
+export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete, onIconChange }: ClockCardProps) {
   const [armed, setArmed] = useState(false)
+  const [editingIcon, setEditingIcon] = useState(false)
   const deleteRef = useRef<HTMLButtonElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
   const remaining = displayRemaining(clock, now)
   const ratio =
     clock.durationMs === 0 ? 0 : Math.min(1, Math.max(0, remaining / clock.durationMs))
@@ -28,6 +32,23 @@ export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete }
   const runLabel =
     clock.status === 'running' ? 'Pause' : remaining === clock.durationMs ? 'Start' : 'Resume'
   const statusLabel = urgent ? 'Ending' : clock.status === 'running' ? 'Running' : clock.status === 'paused' ? 'Paused' : 'Done'
+
+  useEffect(() => {
+    if (!editingIcon) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEditingIcon(false)
+    }
+    const onPointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && editorRef.current?.contains(event.target)) return
+      setEditingIcon(false)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onPointer)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onPointer)
+    }
+  }, [editingIcon])
 
   useEffect(() => {
     if (!armed) return
@@ -63,7 +84,29 @@ export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete }
     >
       <div className="card-top">
         <div className="card-heading">
-          <ClockIcon icon={clock.icon} className="card-icon" />
+          <div className="icon-editor" ref={editorRef}>
+            <button
+              type="button"
+              className="icon-edit"
+              aria-expanded={editingIcon}
+              aria-label={`Change icon for ${clock.label}`}
+              onClick={() => setEditingIcon((open) => !open)}
+            >
+              <ClockIcon icon={clock.icon} className="card-icon" />
+            </button>
+            {editingIcon ? (
+              <div className="icon-editor-panel" role="dialog" aria-label={`Icon for ${clock.label}`}>
+                <IconChooser
+                  icon={clock.icon}
+                  showPreview={false}
+                  onChange={(icon) => {
+                    onIconChange(icon)
+                    setEditingIcon(false)
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
           <h3 className="card-label" title={clock.label}>
             {clock.label}
           </h3>

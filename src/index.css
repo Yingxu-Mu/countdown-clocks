@@ -631,6 +631,7 @@ input::placeholder {
 
 .card {
   container-type: inline-size;
+  position: relative;
   width: 100%;
   padding: 16px 16px 14px;
   display: flex;
@@ -658,6 +659,45 @@ html[data-theme='tide'] .card[data-status='running'] {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.icon-editor {
+  flex: 0 0 auto;
+}
+
+.icon-edit {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  display: grid;
+  place-items: center;
+}
+
+.icon-edit:hover,
+.icon-edit[aria-expanded='true'] {
+  border-color: var(--line);
+  background: var(--field);
+}
+
+.icon-editor-panel {
+  position: absolute;
+  z-index: 3;
+  top: 52px;
+  left: 12px;
+  right: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elev);
+  box-shadow: var(--shadow);
+}
+
+.icon-editor-panel .icon-field {
+  margin-top: 0;
 }
 
 .card-icon {

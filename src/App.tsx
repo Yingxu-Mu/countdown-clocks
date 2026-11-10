@@ -193,6 +193,10 @@ export default function App() {
     setClocks((current) => current.filter((clock) => clock.id !== id))
   }
 
+  function updateIcon(id: string, icon: string) {
+    setClocks((current) => current.map((clock) => (clock.id === id ? { ...clock, icon } : clock)))
+  }
+
   return (
     <div className="shell">
       <header className="top">
@@ -239,6 +243,7 @@ export default function App() {
                     onResume={() => resumeClock(clock.id)}
                     onRestart={() => restartClock(clock.id)}
                     onDelete={() => deleteClock(clock.id)}
+                    onIconChange={(icon) => updateIcon(clock.id, icon)}
                   />
                 </li>
               ))}

@@ -199,13 +199,13 @@ html[data-theme='tide'] {
   text-transform: uppercase;
 }
 
-.style-note {
+.setting-note {
   margin: 8px 0 0;
   color: var(--muted);
   font-size: 13px;
 }
 
-.style-switch {
+.segment {
   display: inline-flex;
   padding: 4px;
   gap: 4px;
@@ -214,7 +214,7 @@ html[data-theme='tide'] {
   background: var(--field);
 }
 
-.style-switch button {
+.segment button {
   appearance: none;
   border: 0;
   background: transparent;
@@ -229,16 +229,16 @@ html[data-theme='tide'] {
   font-weight: 600;
 }
 
-.style-switch button:hover {
+.segment button:hover {
   background: var(--hover);
 }
 
-.style-switch button[aria-checked='true'] {
+.segment button[aria-checked='true'] {
   background: var(--ink);
   color: var(--bg);
 }
 
-.style-switch button[aria-checked='true']:hover {
+.segment button[aria-checked='true']:hover {
   background: var(--ink);
 }
 
@@ -259,31 +259,6 @@ html[data-theme='tide'] {
 
 .swatch-tide {
   background: #1f8a80;
-}
-
-.sound-toggle {
-  appearance: none;
-  min-width: 76px;
-  min-height: 48px;
-  padding: 0 16px;
-  border-radius: var(--control-radius);
-  border: 1px solid var(--line);
-  background: var(--field);
-  font-weight: 600;
-}
-
-.sound-toggle[aria-pressed='true'] {
-  background: var(--ink);
-  color: var(--bg);
-  border-color: var(--ink);
-}
-
-.sound-toggle:hover {
-  background: var(--hover);
-}
-
-.sound-toggle[aria-pressed='true']:hover {
-  background: var(--ink);
 }
 
 .stack {
@@ -866,13 +841,14 @@ html[data-theme='signal'] .status {
     gap: 22px;
   }
 
-  .style-switch {
+  .segment {
     width: 100%;
   }
 
-  .style-switch button {
+  .segment button {
     flex: 1;
     justify-content: center;
+    padding-inline: 8px;
   }
 
   .duration,

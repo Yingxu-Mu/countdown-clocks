@@ -6,6 +6,15 @@ export const THEMES = [
 
 export type ThemeId = (typeof THEMES)[number]['id']
 
+export const SOUNDS = [
+  { id: 'bell', label: 'Bell', note: 'A clear strike' },
+  { id: 'alarm', label: 'Alarm', note: 'A repeating beep' },
+  { id: 'chime', label: 'Chime', note: 'A soft pair of notes' },
+  { id: 'off', label: 'Off', note: 'Silent when a clock finishes' },
+] as const
+
+export type SoundId = (typeof SOUNDS)[number]['id']
+
 export type ClockStatus = 'running' | 'paused' | 'done'
 
 export type Clock = {
@@ -20,10 +29,14 @@ export type Clock = {
 
 export type Settings = {
   theme: ThemeId
-  sound: boolean
+  sound: SoundId
   recentSeconds: number[]
 }
 
 export function isThemeId(value: unknown): value is ThemeId {
   return THEMES.some((theme) => theme.id === value)
+}
+
+export function isSoundId(value: unknown): value is SoundId {
+  return SOUNDS.some((sound) => sound.id === value)
 }

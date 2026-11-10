@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { playChime, primeAudio } from './chime'
 import { createId, nextLabel, settleClocks, summarize } from './clocks'
 import { ClockCard } from './components/ClockCard'
 import { ClockForm } from './components/ClockForm'
+import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
+import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
 import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
 import { quickSetSeconds, rememberDuration } from './time'
-import type { Clock, ThemeId } from './types'
+import type { Clock, SoundId, ThemeId } from './types'
 
 const THEME_COLOR: Record<ThemeId, string> = {
   paper: '#f3efe6',
@@ -30,7 +31,7 @@ export default function App() {
   const [clocks, setClocks] = useState<Clock[]>(loadClocks)
   const [now, setNow] = useState(() => Date.now())
   const [theme, setTheme] = useState<ThemeId>(() => loadSettings().theme)
-  const [sound, setSound] = useState(() => loadSettings().sound)
+  const [sound, setSound] = useState<SoundId>(() => loadSettings().sound)
   const [recentSeconds, setRecentSeconds] = useState<number[]>(initialRecentSeconds)
   const finishedIds = useRef<Set<string> | null>(null)
 
@@ -88,6 +89,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    prepareSound(sound)
+  }, [sound])
+
+  useEffect(() => {
     const prime = () => primeAudio()
     window.addEventListener('pointerdown', prime)
     window.addEventListener('keydown', prime)
@@ -115,7 +120,7 @@ export default function App() {
         seen.delete(clock.id)
       }
     }
-    if (justFinished && sound) playChime()
+    if (justFinished) playSound(sound)
   }, [clocks, sound])
 
   function addClock(input: { label: string; durationMs: number; icon: string }) {
@@ -153,6 +158,7 @@ export default function App() {
   }
 
   function resumeClock(id: string) {
+    unlockSound()
     const time = Date.now()
     setNow(time)
     setClocks((current) =>
@@ -167,6 +173,7 @@ export default function App() {
   }
 
   function restartClock(id: string) {
+    unlockSound()
     const time = Date.now()
     setNow(time)
     setClocks((current) =>
@@ -197,20 +204,7 @@ export default function App() {
         </div>
         <div className="settings">
           <StyleSwitch theme={theme} onChange={setTheme} />
-          <div className="sound-setting">
-            <span className="setting-label" id="sound-label">
-              Sound
-            </span>
-            <button
-              type="button"
-              className="sound-toggle"
-              aria-pressed={sound}
-              aria-label={sound ? 'Sound on' : 'Sound off'}
-              onClick={() => setSound((current) => !current)}
-            >
-              {sound ? 'On' : 'Off'}
-            </button>
-          </div>
+          <SoundSwitch sound={sound} onChange={setSound} />
         </div>
       </header>
 
@@ -254,8 +248,8 @@ export default function App() {
       </main>
 
       <p className="footnote">
-        Saved in this browser. A running clock keeps its deadline if you leave the tab. Sound plays a
-        short chime when one finishes.
+        Saved in this browser. A running clock keeps its deadline if you leave the tab. Sound plays the
+        finish tone you picked when a clock ends.
       </p>
     </div>
   )

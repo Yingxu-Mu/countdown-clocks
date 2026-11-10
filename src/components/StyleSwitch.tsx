@@ -36,7 +36,7 @@ export function StyleSwitch({ theme, onChange }: StyleSwitchProps) {
       <div
         role="radiogroup"
         aria-labelledby="style-label"
-        className="style-switch"
+        className="segment"
         onKeyDown={onKeyDown}
       >
         {THEMES.map((item) => (
@@ -56,7 +56,7 @@ export function StyleSwitch({ theme, onChange }: StyleSwitchProps) {
           </button>
         ))}
       </div>
-      <p className="style-note">{active.note}</p>
+      <p className="setting-note">{active.note}</p>
     </div>
   )
 }

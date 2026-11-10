@@ -1,11 +1,17 @@
 import { normalizeIcon } from './icons'
 import { MAX_DURATION_MS, rememberDuration } from './time'
-import { isThemeId, type Clock, type ClockStatus, type Settings } from './types'
+import { isSoundId, isThemeId, type Clock, type ClockStatus, type Settings, type SoundId } from './types'
 
 const CLOCKS_KEY = 'countdown-clocks.clocks.v1'
 const SETTINGS_KEY = 'countdown-clocks.settings.v1'
 
-const DEFAULT_SETTINGS: Settings = { theme: 'paper', sound: true, recentSeconds: [] }
+const DEFAULT_SETTINGS: Settings = { theme: 'paper', sound: 'bell', recentSeconds: [] }
+
+function normalizeSound(value: unknown): SoundId {
+  if (value === false) return 'off'
+  if (isSoundId(value)) return value
+  return DEFAULT_SETTINGS.sound
+}
 
 function normalizeRecent(value: unknown): number[] {
   if (!Array.isArray(value)) return []
@@ -101,7 +107,7 @@ export function loadSettings(): Settings {
     if (!isRecord(parsed)) return DEFAULT_SETTINGS
     return {
       theme: isThemeId(parsed.theme) ? parsed.theme : DEFAULT_SETTINGS.theme,
-      sound: typeof parsed.sound === 'boolean' ? parsed.sound : DEFAULT_SETTINGS.sound,
+      sound: normalizeSound(parsed.sound),
       recentSeconds: normalizeRecent(parsed.recentSeconds),
     }
   } catch {

@@ -2,6 +2,7 @@ import { useId, useRef, useState, type FormEvent } from 'react'
 import { DEFAULT_CLOCK_ICON, EMOJI_OPTIONS, prepareIconFile } from '../icons'
 import { formatLength } from '../time'
 import { ClockIcon } from './ClockIcon'
+import { EmojiPicker } from './EmojiPicker'
 
 type ClockFormProps = {
   suggestedLabel: string
@@ -120,32 +121,41 @@ export function ClockForm({ suggestedLabel, presets, onAdd }: ClockFormProps) {
           <div className="icon-preview" aria-hidden="true">
             <ClockIcon icon={icon} />
           </div>
-          <div className="emoji-grid" role="group" aria-label="Choose an icon">
-            {EMOJI_OPTIONS.map((emoji) => (
+          <div className="emoji-grid" role="group" aria-label="Common icons">
+            {EMOJI_OPTIONS.map((option) => (
               <button
-                key={emoji}
+                key={option.emoji}
                 type="button"
                 className="emoji-btn"
-                aria-pressed={icon === emoji}
-                aria-label={emoji}
-                onClick={() => setIcon(emoji)}
+                aria-pressed={icon === option.emoji}
+                aria-label={option.label}
+                onClick={() => setIcon(option.emoji)}
               >
-                {emoji}
+                {option.emoji}
               </button>
             ))}
           </div>
         </div>
-        <label className="upload-btn">
-          Upload image
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => {
-              void onIconFile(event.target.files?.[0])
-              event.target.value = ''
+        <div className="icon-actions">
+          <label className="upload-btn">
+            Upload image
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                void onIconFile(event.target.files?.[0])
+                event.target.value = ''
+              }}
+            />
+          </label>
+          <EmojiPicker
+            selected={icon}
+            onSelect={(emoji) => {
+              setIcon(emoji)
+              setError('')
             }}
           />
-        </label>
+        </div>
       </div>
       <div className="presets">
         <span className="presets-label">Quick set</span>

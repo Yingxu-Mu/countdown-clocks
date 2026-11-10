@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Clock } from '../types'
 import { displayRemaining, formatClock, formatLength } from '../time'
+import { ClockIcon } from './ClockIcon'
 
 const SIZE = 120
 const STROKE = 8
@@ -61,9 +62,12 @@ export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete }
       aria-label={`${clock.label}, ${statusLabel}, ${formatClock(remaining)}`}
     >
       <div className="card-top">
-        <h3 className="card-label" title={clock.label}>
-          {clock.label}
-        </h3>
+        <div className="card-heading">
+          <ClockIcon icon={clock.icon} className="card-icon" />
+          <h3 className="card-label" title={clock.label}>
+            {clock.label}
+          </h3>
+        </div>
         <button
           ref={deleteRef}
           type="button"

@@ -11,6 +11,7 @@ export type ClockStatus = 'running' | 'paused' | 'done'
 export type Clock = {
   id: string
   label: string
+  icon: string
   durationMs: number
   remainingMs: number
   endsAt: number | null

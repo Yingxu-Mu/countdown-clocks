@@ -1,3 +1,4 @@
+import { normalizeIcon } from './icons'
 import { MAX_DURATION_MS, rememberDuration } from './time'
 import { isThemeId, type Clock, type ClockStatus, type Settings } from './types'
 
@@ -60,6 +61,7 @@ function normalizeClock(value: unknown, now: number): Clock | null {
   return {
     id: value.id,
     label: value.label.trim().slice(0, 40) || 'Clock',
+    icon: normalizeIcon(value.icon),
     durationMs,
     remainingMs,
     endsAt,

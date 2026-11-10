@@ -328,7 +328,8 @@ html[data-theme='tide'] {
 }
 
 .name-field span,
-.part span {
+.part span,
+.icon-field > span {
   display: block;
   margin-bottom: 6px;
   color: var(--muted);
@@ -459,6 +460,97 @@ input::placeholder {
   min-height: 48px;
 }
 
+.icon-field {
+  margin-top: 14px;
+}
+
+.icon-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon-preview,
+.card-icon {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.icon-preview {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--field);
+  font-size: 28px;
+}
+
+.icon-preview img,
+.card-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.emoji-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.emoji-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.emoji-btn:hover {
+  background: var(--hover);
+}
+
+.emoji-btn[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--field);
+}
+
+.upload-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 10px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-btn:hover {
+  background: var(--hover);
+}
+
+.upload-btn input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -509,6 +601,23 @@ html[data-theme='tide'] .card[data-status='running'] {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.card-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.card-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 8px;
+  font-size: 20px;
+  line-height: 1;
+  object-fit: cover;
 }
 
 .card-label {

@@ -1,10 +1,12 @@
 import { useId, useRef, useState, type FormEvent } from 'react'
+import { DEFAULT_CLOCK_ICON, EMOJI_OPTIONS, prepareIconFile } from '../icons'
 import { formatLength } from '../time'
+import { ClockIcon } from './ClockIcon'
 
 type ClockFormProps = {
   suggestedLabel: string
   presets: readonly number[]
-  onAdd: (input: { label: string; durationMs: number }) => void
+  onAdd: (input: { label: string; durationMs: number; icon: string }) => void
 }
 
 function pad(value: number): string {
@@ -28,6 +30,7 @@ export function ClockForm({ suggestedLabel, presets, onAdd }: ClockFormProps) {
   const [hours, setHours] = useState('00')
   const [minutes, setMinutes] = useState('05')
   const [seconds, setSeconds] = useState('00')
+  const [icon, setIcon] = useState(DEFAULT_CLOCK_ICON)
   const [error, setError] = useState('')
 
   const totalSeconds =
@@ -57,10 +60,20 @@ export function ClockForm({ suggestedLabel, presets, onAdd }: ClockFormProps) {
       setError('Set a duration of at least one second.')
       return
     }
-    onAdd({ label: label.trim(), durationMs })
+    onAdd({ label: label.trim(), durationMs, icon })
     setLabel('')
     setError('')
     nameRef.current?.focus()
+  }
+
+  async function onIconFile(file: File | undefined) {
+    if (!file) return
+    try {
+      setIcon(await prepareIconFile(file))
+      setError('')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not use that image.')
+    }
   }
 
   return (
@@ -100,6 +113,39 @@ export function ClockForm({ suggestedLabel, presets, onAdd }: ClockFormProps) {
         <button type="submit" className="btn btn-primary add-button">
           Add clock
         </button>
+      </div>
+      <div className="icon-field">
+        <span>Icon</span>
+        <div className="icon-row">
+          <div className="icon-preview" aria-hidden="true">
+            <ClockIcon icon={icon} />
+          </div>
+          <div className="emoji-grid" role="group" aria-label="Choose an icon">
+            {EMOJI_OPTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                className="emoji-btn"
+                aria-pressed={icon === emoji}
+                aria-label={emoji}
+                onClick={() => setIcon(emoji)}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+        <label className="upload-btn">
+          Upload image
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              void onIconFile(event.target.files?.[0])
+              event.target.value = ''
+            }}
+          />
+        </label>
       </div>
       <div className="presets">
         <span className="presets-label">Quick set</span>

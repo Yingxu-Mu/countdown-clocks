@@ -118,13 +118,14 @@ export default function App() {
     if (justFinished && sound) playChime()
   }, [clocks, sound])
 
-  function addClock(input: { label: string; durationMs: number }) {
+  function addClock(input: { label: string; durationMs: number; icon: string }) {
     const time = Date.now()
     setNow(time)
     setClocks((current) => {
       const clock: Clock = {
         id: createId(),
         label: input.label || nextLabel(current),
+        icon: input.icon,
         durationMs: input.durationMs,
         remainingMs: input.durationMs,
         endsAt: null,

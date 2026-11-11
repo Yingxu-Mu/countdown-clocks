@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createId, nextLabel, settleClocks, summarize } from './clocks'
 import { ClockCard } from './components/ClockCard'
-import { ClockForm } from './components/ClockForm'
+import { DraftClock } from './components/DraftClock'
 import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
@@ -197,13 +197,19 @@ export default function App() {
     setClocks((current) => current.map((clock) => (clock.id === id ? { ...clock, icon } : clock)))
   }
 
+  function updateTitle(id: string, label: string) {
+    const next = label.trim().slice(0, 40)
+    if (!next) return
+    setClocks((current) => current.map((clock) => (clock.id === id ? { ...clock, label: next } : clock)))
+  }
+
   return (
     <div className="shell">
       <header className="top">
         <div className="brand">
           <h1 className="wordmark">Clocks</h1>
           <p className="lede">
-            Add as many countdowns as you need. A new clock waits until you start it, and each one pauses on its own.
+            Add as many countdowns as you need. Set the next one on the dial, and each clock pauses on its own.
           </p>
         </div>
         <div className="settings">
@@ -213,42 +219,34 @@ export default function App() {
       </header>
 
       <main className="stack">
-        <section className="panel" aria-labelledby="add-heading">
-          <h2 id="add-heading">Add a clock</h2>
-          <ClockForm
-            suggestedLabel={nextLabel(clocks)}
-            presets={quickSetSeconds(recentSeconds)}
-            onAdd={addClock}
-          />
-        </section>
-
         <section aria-labelledby="list-heading">
           <div className="section-head">
             <h2 id="list-heading">Your clocks</h2>
             <p className="summary">{summarize(clocks)}</p>
           </div>
-          {clocks.length === 0 ? (
-            <div className="empty">
-              <strong>Nothing counting yet</strong>
-              <p>Set a name and a duration, then add your first clock.</p>
-            </div>
-          ) : (
-            <ul className="clock-grid">
-              {clocks.map((clock) => (
-                <li key={clock.id}>
-                  <ClockCard
-                    clock={clock}
-                    now={now}
-                    onPause={() => pauseClock(clock.id)}
-                    onResume={() => resumeClock(clock.id)}
-                    onRestart={() => restartClock(clock.id)}
-                    onDelete={() => deleteClock(clock.id)}
-                    onIconChange={(icon) => updateIcon(clock.id, icon)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className="clock-grid">
+            {clocks.map((clock) => (
+              <li key={clock.id}>
+                <ClockCard
+                  clock={clock}
+                  now={now}
+                  onPause={() => pauseClock(clock.id)}
+                  onResume={() => resumeClock(clock.id)}
+                  onRestart={() => restartClock(clock.id)}
+                  onDelete={() => deleteClock(clock.id)}
+                  onIconChange={(icon) => updateIcon(clock.id, icon)}
+                  onTitleChange={(label) => updateTitle(clock.id, label)}
+                />
+              </li>
+            ))}
+            <li>
+              <DraftClock
+                suggestedLabel={nextLabel(clocks)}
+                presets={quickSetSeconds(recentSeconds)}
+                onAdd={addClock}
+              />
+            </li>
+          </ul>
         </section>
       </main>
 

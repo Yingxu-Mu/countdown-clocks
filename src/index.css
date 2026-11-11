@@ -658,6 +658,7 @@ html[data-theme='tide'] .card[data-status='running'] {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
   min-width: 0;
 }
 
@@ -712,12 +713,49 @@ html[data-theme='tide'] .card[data-status='running'] {
 
 .card-label {
   margin: 0;
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 16px;
   font-weight: 600;
+}
+
+.title-button,
+.title-input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+}
+
+.title-button {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title-button:hover {
+  color: var(--accent);
+}
+
+.title-input {
+  min-height: 0;
+  height: 28px;
+  padding: 0 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
 }
 
 .face {
@@ -729,6 +767,47 @@ html[data-theme='tide'] .card[data-status='running'] {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.card-draft {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.dial {
+  cursor: grab;
+  touch-action: none;
+}
+
+.dial:active {
+  cursor: grabbing;
+}
+
+.dial:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 50%;
+}
+
+.dial .ring-value {
+  transition: none;
+}
+
+.dial-tick {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.dial-knob {
+  fill: var(--bg-elev);
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.card .presets {
+  justify-content: center;
+  margin-top: 2px;
 }
 
 .ring-track,

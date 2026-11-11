@@ -18,11 +18,24 @@ type ClockCardProps = {
   onRestart: () => void
   onDelete: () => void
   onIconChange: (icon: string) => void
+  onTitleChange: (label: string) => void
 }
 
-export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete, onIconChange }: ClockCardProps) {
+export function ClockCard({
+  clock,
+  now,
+  onPause,
+  onResume,
+  onRestart,
+  onDelete,
+  onIconChange,
+  onTitleChange,
+}: ClockCardProps) {
   const [armed, setArmed] = useState(false)
   const [editingIcon, setEditingIcon] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(clock.label)
+  const cancelTitle = useRef(false)
   const deleteRef = useRef<HTMLButtonElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const remaining = displayRemaining(clock, now)
@@ -67,6 +80,17 @@ export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete, 
     }
   }, [armed])
 
+  function commitTitle() {
+    if (cancelTitle.current) {
+      cancelTitle.current = false
+      return
+    }
+    const next = titleDraft.trim().slice(0, 40)
+    setEditingTitle(false)
+    if (next && next !== clock.label) onTitleChange(next)
+    else setTitleDraft(clock.label)
+  }
+
   function requestDelete() {
     if (!armed) {
       setArmed(true)
@@ -107,8 +131,45 @@ export function ClockCard({ clock, now, onPause, onResume, onRestart, onDelete, 
               </div>
             ) : null}
           </div>
-          <h3 className="card-label" title={clock.label}>
-            {clock.label}
+          <h3 className="card-label">
+            {editingTitle ? (
+              <input
+                className="title-input"
+                value={titleDraft}
+                maxLength={40}
+                aria-label={`Name for ${clock.label}`}
+                autoFocus
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => setTitleDraft(event.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    commitTitle()
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    cancelTitle.current = true
+                    setTitleDraft(clock.label)
+                    setEditingTitle(false)
+                  }
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="title-button"
+                title={`Rename ${clock.label}`}
+                aria-label={`Rename ${clock.label}`}
+                onClick={() => {
+                  setTitleDraft(clock.label)
+                  setEditingTitle(true)
+                }}
+              >
+                {clock.label}
+              </button>
+            )}
           </h3>
         </div>
         <button

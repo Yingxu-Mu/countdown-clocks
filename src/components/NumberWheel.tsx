@@ -29,41 +29,65 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
   useLayoutEffect(() => {
     const node = scroller.current
     if (!node || dragging.current) return
-    const top = value * ITEM
+    const top = value * itemSize(node)
     if (Math.abs(node.scrollTop - top) < 1) return
     node.scrollTop = top
   }, [value])
 
   useEffect(() => {
+    const blockSelect = (event: Event) => {
+      if (document.documentElement.hasAttribute('data-wheel-drag')) event.preventDefault()
+    }
+    document.addEventListener('selectstart', blockSelect)
+    return () => {
+      document.removeEventListener('selectstart', blockSelect)
+      document.documentElement.removeAttribute('data-wheel-drag')
+    }
+  }, [])
+
+  useEffect(() => {
     const node = scroller.current
     if (!node) return
+    const blockSelect = (event: Event) => event.preventDefault()
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
       const direction = event.deltaY === 0 ? 0 : event.deltaY > 0 ? 1 : -1
       if (direction === 0) return
-      const index = clamp(Math.round(node.scrollTop / ITEM) + direction, 0, max)
-      node.scrollTo({ top: index * ITEM, behavior: 'smooth' })
+      const size = itemSize(node)
+      const index = clamp(Math.round(node.scrollTop / size) + direction, 0, max)
+      node.scrollTo({ top: index * size, behavior: 'smooth' })
       onChangeRef.current(index)
     }
     node.addEventListener('wheel', onWheel, { passive: false })
-    return () => node.removeEventListener('wheel', onWheel)
+    node.addEventListener('selectstart', blockSelect)
+    return () => {
+      node.removeEventListener('wheel', onWheel)
+      node.removeEventListener('selectstart', blockSelect)
+    }
   }, [max])
 
   function onScroll(event: UIEvent<HTMLDivElement>) {
-    const index = clamp(Math.round(event.currentTarget.scrollTop / ITEM), 0, max)
+    const index = clamp(Math.round(event.currentTarget.scrollTop / itemSize(event.currentTarget)), 0, max)
     if (index !== value) onChangeRef.current(index)
   }
 
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return
-    event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault()
+    const node = event.currentTarget
+    node.focus({ preventScroll: true })
+    node.setPointerCapture(event.pointerId)
     dragging.current = true
-    drag.current = { y: event.clientY, scroll: event.currentTarget.scrollTop, moved: false }
+    drag.current = { y: event.clientY, scroll: node.scrollTop, moved: false }
+    document.documentElement.setAttribute('data-wheel-drag', '')
+    window.getSelection()?.removeAllRanges()
   }
 
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
     const current = drag.current
     if (!current) return
+    event.preventDefault()
+    window.getSelection()?.removeAllRanges()
     const delta = event.clientY - current.y
     if (!current.moved && Math.abs(delta) < 3) return
     current.moved = true
@@ -71,20 +95,23 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
   }
 
   function onPointerUp(event: PointerEvent<HTMLDivElement>) {
+    document.documentElement.removeAttribute('data-wheel-drag')
     const current = drag.current
     drag.current = null
     dragging.current = false
     if (!current) return
     const node = event.currentTarget
+    if (current.moved) swallowClick()
+    const size = itemSize(node)
     if (!current.moved) {
       const contentY = event.clientY - node.getBoundingClientRect().top + node.scrollTop
-      const index = clamp(Math.floor((contentY - ITEM) / ITEM), 0, max)
-      node.scrollTo({ top: index * ITEM, behavior: 'smooth' })
+      const index = clamp(Math.floor((contentY - padSize(node)) / size), 0, max)
+      node.scrollTo({ top: index * size, behavior: 'smooth' })
       if (index !== value) onChangeRef.current(index)
       return
     }
-    const index = clamp(Math.round(node.scrollTop / ITEM), 0, max)
-    node.scrollTo({ top: index * ITEM, behavior: 'smooth' })
+    const index = clamp(Math.round(node.scrollTop / size), 0, max)
+    node.scrollTo({ top: index * size, behavior: 'smooth' })
     if (index !== value) onChangeRef.current(index)
   }
 
@@ -97,7 +124,8 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
     else return
     event.preventDefault()
     next = clamp(next, 0, max)
-    scroller.current?.scrollTo({ top: next * ITEM, behavior: 'smooth' })
+    const node = scroller.current
+    node?.scrollTo({ top: next * (node ? itemSize(node) : ITEM), behavior: 'smooth' })
     if (next !== value) onChangeRef.current(next)
   }
 
@@ -117,6 +145,8 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
           aria-valuetext={`${value} ${label}`}
           onScroll={onScroll}
           onPointerDown={onPointerDown}
+          onMouseDown={(event) => event.preventDefault()}
+          onDragStart={(event) => event.preventDefault()}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
@@ -141,4 +171,23 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
+}
+
+function itemSize(node: HTMLElement): number {
+  const child = node.firstElementChild
+  return child instanceof HTMLElement && child.offsetHeight > 0 ? child.offsetHeight : ITEM
+}
+
+function padSize(node: HTMLElement): number {
+  return Number.parseFloat(getComputedStyle(node).paddingTop) || 0
+}
+
+function swallowClick() {
+  const block = (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    window.removeEventListener('click', block, true)
+  }
+  window.addEventListener('click', block, true)
+  window.setTimeout(() => window.removeEventListener('click', block, true), 0)
 }

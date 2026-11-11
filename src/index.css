@@ -628,6 +628,7 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  user-select: none;
 }
 
 html[data-theme='signal'] .card[data-status='running'] {
@@ -785,17 +786,20 @@ html[data-theme='tide'] .card[data-status='running'] {
   border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
+  user-select: text;
 }
 
 .face {
-  width: 148px;
+  --dial: 148px;
+  width: var(--dial);
+  height: var(--dial);
   margin: 4px auto 0;
 }
 
 .face svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
 }
 
 .draft-prompt {
@@ -831,9 +835,15 @@ html[data-theme='tide'] .card[data-status='running'] {
   line-height: 1;
 }
 
+.wheel {
+  --wheel-item: 36px;
+  --wheel-view: var(--dial);
+  height: var(--wheel-view);
+}
+
 .wheel-window {
   position: relative;
-  height: 108px;
+  height: var(--wheel-view);
 }
 
 .wheel-band {
@@ -841,8 +851,8 @@ html[data-theme='tide'] .card[data-status='running'] {
   z-index: 0;
   left: 0;
   right: 0;
-  top: 36px;
-  height: 36px;
+  top: calc((var(--wheel-view) - var(--wheel-item)) / 2);
+  height: var(--wheel-item);
   border-radius: 10px;
   background: var(--field);
   pointer-events: none;
@@ -851,13 +861,15 @@ html[data-theme='tide'] .card[data-status='running'] {
 .wheel-scroller {
   position: relative;
   z-index: 1;
-  height: 108px;
+  height: var(--wheel-view);
   overflow-y: auto;
-  padding: 36px 0;
+  padding: calc((var(--wheel-view) - var(--wheel-item)) / 2) 0;
   scrollbar-width: none;
   cursor: grab;
   touch-action: none;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
   mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent);
 }
 
@@ -876,7 +888,7 @@ html[data-theme='tide'] .card[data-status='running'] {
 }
 
 .wheel-item {
-  height: 36px;
+  height: var(--wheel-item);
   display: grid;
   place-items: center;
   font-family: var(--font-time);
@@ -975,6 +987,17 @@ html[data-theme='tide'] .card[data-status='running'] {
 .face .wheel {
   width: 84px;
   margin: 0 auto;
+}
+
+.face .wheel-caption {
+  display: none;
+}
+
+html[data-wheel-drag],
+html[data-wheel-drag] * {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grabbing;
 }
 
 .status {

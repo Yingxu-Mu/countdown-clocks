@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createId, nextLabel, settleClocks, summarize } from './clocks'
 import { ClockCard } from './components/ClockCard'
 import { DraftClock } from './components/DraftClock'
@@ -13,6 +13,26 @@ const THEME_COLOR: Record<ThemeId, string> = {
   paper: '#f3efe6',
   signal: '#101114',
   tide: '#e4f1ee',
+}
+
+type DragBox = {
+  id: string
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+type Reorder = {
+  id: string
+  pointerId: number
+  offsetX: number
+  offsetY: number
+  width: number
+  height: number
+  moved: boolean
+  startX: number
+  startY: number
 }
 
 function initialRecentSeconds(): number[] {
@@ -34,6 +54,8 @@ export default function App() {
   const [sound, setSound] = useState<SoundId>(() => loadSettings().sound)
   const [recentSeconds, setRecentSeconds] = useState<number[]>(initialRecentSeconds)
   const finishedIds = useRef<Set<string> | null>(null)
+  const reorder = useRef<Reorder | null>(null)
+  const [drag, setDrag] = useState<DragBox | null>(null)
 
   if (finishedIds.current === null) {
     finishedIds.current = new Set(
@@ -203,13 +225,101 @@ export default function App() {
     setClocks((current) => current.map((clock) => (clock.id === id ? { ...clock, label: next } : clock)))
   }
 
+  function onReorderPointerDown(id: string, event: PointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0) return
+    const card = event.currentTarget.closest('article')
+    const item = event.currentTarget.closest('li')
+    if (!(card instanceof HTMLElement) || !(item instanceof HTMLElement)) return
+    const rect = card.getBoundingClientRect()
+    const itemRect = item.getBoundingClientRect()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    reorder.current = {
+      id,
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      width: rect.width,
+      height: itemRect.height,
+      moved: false,
+      startX: event.clientX,
+      startY: event.clientY,
+    }
+  }
+
+  function onReorderPointerMove(id: string, event: PointerEvent<HTMLButtonElement>) {
+    const current = reorder.current
+    if (!current || current.id !== id || current.pointerId !== event.pointerId) return
+    const dx = event.clientX - current.startX
+    const dy = event.clientY - current.startY
+    if (!current.moved) {
+      if (dx * dx + dy * dy < 16) return
+      current.moved = true
+    }
+    setDrag({
+      id,
+      left: event.clientX - current.offsetX,
+      top: event.clientY - current.offsetY,
+      width: current.width,
+      height: current.height,
+    })
+    const slot = document.elementsFromPoint(event.clientX, event.clientY).find((node) => {
+      if (!(node instanceof HTMLElement)) return false
+      const item = node.closest('li')
+      if (!(item instanceof HTMLElement) || !item.parentElement?.classList.contains('clock-grid')) return false
+      return item.dataset.clockId !== id
+    })
+    if (!(slot instanceof HTMLElement)) return
+    const item = slot.closest('li')
+    if (!(item instanceof HTMLElement)) return
+    const targetId = item.dataset.draft != null ? null : item.dataset.clockId
+    if (item.dataset.draft == null && !targetId) return
+    setClocks((current) => {
+      const toIndex = targetId == null ? current.length - 1 : current.findIndex((clock) => clock.id === targetId)
+      const from = current.findIndex((clock) => clock.id === id)
+      if (from < 0 || toIndex < 0 || toIndex >= current.length || from === toIndex) return current
+      const next = [...current]
+      const [clock] = next.splice(from, 1)
+      if (!clock) return current
+      next.splice(toIndex, 0, clock)
+      return next
+    })
+  }
+
+  function onReorderPointerUp(id: string, event: PointerEvent<HTMLButtonElement>) {
+    const current = reorder.current
+    if (!current || current.id !== id || current.pointerId !== event.pointerId) return
+    reorder.current = null
+    setDrag(null)
+  }
+
+  function onReorderKeyDown(id: string, event: KeyboardEvent<HTMLButtonElement>) {
+    const direction =
+      event.key === 'ArrowUp' || event.key === 'ArrowLeft'
+        ? -1
+        : event.key === 'ArrowDown' || event.key === 'ArrowRight'
+          ? 1
+          : 0
+    if (direction === 0) return
+    event.preventDefault()
+    setClocks((current) => {
+      const from = current.findIndex((clock) => clock.id === id)
+      const toIndex = from + direction
+      if (from < 0 || toIndex < 0 || toIndex >= current.length) return current
+      const next = [...current]
+      const [clock] = next.splice(from, 1)
+      if (!clock) return current
+      next.splice(toIndex, 0, clock)
+      return next
+    })
+  }
+
   return (
     <div className="shell">
       <header className="top">
         <div className="brand">
           <h1 className="wordmark">Clocks</h1>
           <p className="lede">
-            Add as many countdowns as you need. Set the next one on the dial, and each clock pauses on its own.
+            Add as many countdowns as you need. Set the next one on the wheels, and each clock pauses on its own.
           </p>
         </div>
         <div className="settings">
@@ -226,20 +336,35 @@ export default function App() {
           </div>
           <ul className="clock-grid">
             {clocks.map((clock) => (
-              <li key={clock.id}>
+              <li
+                key={clock.id}
+                data-clock-id={clock.id}
+                data-dragging={drag?.id === clock.id ? 'true' : 'false'}
+                style={drag?.id === clock.id ? { height: drag.height } : undefined}
+              >
                 <ClockCard
                   clock={clock}
                   now={now}
+                  dragging={drag?.id === clock.id}
+                  dragStyle={
+                    drag?.id === clock.id
+                      ? { position: 'fixed', left: drag.left, top: drag.top, width: drag.width, zIndex: 5 }
+                      : undefined
+                  }
                   onPause={() => pauseClock(clock.id)}
                   onResume={() => resumeClock(clock.id)}
                   onRestart={() => restartClock(clock.id)}
                   onDelete={() => deleteClock(clock.id)}
                   onIconChange={(icon) => updateIcon(clock.id, icon)}
                   onTitleChange={(label) => updateTitle(clock.id, label)}
+                  onReorderPointerDown={(event) => onReorderPointerDown(clock.id, event)}
+                  onReorderPointerMove={(event) => onReorderPointerMove(clock.id, event)}
+                  onReorderPointerUp={(event) => onReorderPointerUp(clock.id, event)}
+                  onReorderKeyDown={(event) => onReorderKeyDown(clock.id, event)}
                 />
               </li>
             ))}
-            <li>
+            <li data-draft="true">
               <DraftClock
                 suggestedLabel={nextLabel(clocks)}
                 presets={quickSetSeconds(recentSeconds)}

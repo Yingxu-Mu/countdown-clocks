@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { Clock } from '../types'
 import { displayRemaining, formatClock, formatLength } from '../time'
 import { ClockIcon } from './ClockIcon'
@@ -19,6 +26,12 @@ type ClockCardProps = {
   onDelete: () => void
   onIconChange: (icon: string) => void
   onTitleChange: (label: string) => void
+  dragging: boolean
+  dragStyle?: CSSProperties
+  onReorderPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onReorderPointerMove: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onReorderPointerUp: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onReorderKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void
 }
 
 export function ClockCard({
@@ -30,6 +43,12 @@ export function ClockCard({
   onDelete,
   onIconChange,
   onTitleChange,
+  dragging,
+  dragStyle,
+  onReorderPointerDown,
+  onReorderPointerMove,
+  onReorderPointerUp,
+  onReorderKeyDown,
 }: ClockCardProps) {
   const [armed, setArmed] = useState(false)
   const [editingIcon, setEditingIcon] = useState(false)
@@ -104,9 +123,24 @@ export function ClockCard({
       className="card"
       data-status={clock.status}
       data-urgent={urgent ? 'true' : 'false'}
+      data-dragging={dragging ? 'true' : 'false'}
+      style={dragStyle}
       aria-label={`${clock.label}, ${statusLabel}, ${formatClock(remaining)}`}
     >
       <div className="card-top">
+        <button
+          type="button"
+          className="reorder"
+          aria-label={`Reorder ${clock.label}`}
+          title="Drag to reorder"
+          onPointerDown={onReorderPointerDown}
+          onPointerMove={onReorderPointerMove}
+          onPointerUp={onReorderPointerUp}
+          onPointerCancel={onReorderPointerUp}
+          onKeyDown={onReorderKeyDown}
+        >
+          <span className="reorder-grip" aria-hidden="true" />
+        </button>
         <div className="card-heading">
           <div className="icon-editor" ref={editorRef}>
             <button

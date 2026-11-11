@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type PointerEvent, type UIEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type PointerEvent, type UIEvent } from 'react'
 
 const ITEM = 36
 
@@ -17,14 +17,30 @@ type Drag = {
 
 export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
   const scroller = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const drag = useRef<Drag | null>(null)
   const dragging = useRef(false)
   const onChangeRef = useRef(onChange)
+  const [partial, setPartial] = useState<string | null>(null)
+  const [tracked, setTracked] = useState(value)
   const values = Array.from({ length: max + 1 }, (_, index) => index)
+  const digits = String(max).length
+
+  if (value !== tracked) {
+    setTracked(value)
+    if (partial != null && (partial === '' || Number(partial) !== value)) setPartial(null)
+  }
 
   useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
+
+  useEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    input.focus({ preventScroll: true })
+    input.select()
+  }, [])
 
   useLayoutEffect(() => {
     const node = scroller.current
@@ -115,6 +131,42 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
     if (index !== value) onChangeRef.current(index)
   }
 
+  function onType(event: ChangeEvent<HTMLInputElement>) {
+    const typed = event.target.value.replace(/\D/g, '').slice(0, digits)
+    if (typed === '') {
+      setPartial('')
+      return
+    }
+    const next = Number(typed)
+    if (next > max) return
+    const done = typed.length >= digits || next * 10 > max
+    if (done) {
+      setPartial(null)
+      if (next !== value) onChangeRef.current(next)
+      requestAnimationFrame(() => inputRef.current?.select())
+      return
+    }
+    setPartial(typed)
+    if (next !== value) onChangeRef.current(next)
+  }
+
+  function onInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      setPartial(null)
+      inputRef.current?.select()
+      return
+    }
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      const base = partial != null && partial !== '' ? Number(partial) : value
+      const next = clamp(base + (event.key === 'ArrowUp' ? -1 : 1), 0, max)
+      setPartial(null)
+      if (next !== value) onChangeRef.current(next)
+      requestAnimationFrame(() => inputRef.current?.select())
+    }
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     let next = value
     if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = value - 1
@@ -163,6 +215,21 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
             </div>
           ))}
         </div>
+        <input
+          ref={inputRef}
+          className="wheel-input"
+          inputMode="numeric"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label={`Type ${label.toLowerCase()}`}
+          value={partial ?? String(value).padStart(2, '0')}
+          onChange={onType}
+          onFocus={(event) => event.currentTarget.select()}
+          onBlur={() => setPartial(null)}
+          onKeyDown={onInputKeyDown}
+          onMouseDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+        />
       </div>
       <span className="wheel-caption">{label}</span>
     </div>

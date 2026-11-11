@@ -903,6 +903,38 @@ html[data-theme='tide'] .card[data-status='running'] {
   font-weight: 600;
 }
 
+input.wheel-input {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  top: calc((var(--wheel-view) - var(--wheel-item)) / 2);
+  width: auto;
+  height: var(--wheel-item);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--font-time);
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  line-height: var(--wheel-item);
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+input.wheel-input:focus {
+  border-color: transparent;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .wheel-caption {
   display: block;
   margin-top: 4px;

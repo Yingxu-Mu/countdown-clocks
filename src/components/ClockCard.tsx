@@ -226,6 +226,7 @@ export function ClockCard({
       <div className="face" ref={faceRef}>
         {editingPart ? (
           <NumberWheel
+            key={editingPart}
             label={PART_LABEL[editingPart]}
             value={draftParts[editingPart]}
             max={editingPart === 'hours' ? 99 : 59}

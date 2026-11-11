@@ -10,6 +10,7 @@ import type { Clock } from '../types'
 import { displayRemaining, formatClock, formatLength } from '../time'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
+import { NumberWheel } from './NumberWheel'
 
 const SIZE = 120
 const STROKE = 8
@@ -26,6 +27,7 @@ type ClockCardProps = {
   onDelete: () => void
   onIconChange: (icon: string) => void
   onTitleChange: (label: string) => void
+  onTimeChange: (totalSeconds: number) => void
   dragging: boolean
   dragStyle?: CSSProperties
   onReorderPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -43,6 +45,7 @@ export function ClockCard({
   onDelete,
   onIconChange,
   onTitleChange,
+  onTimeChange,
   dragging,
   dragStyle,
   onReorderPointerDown,
@@ -52,9 +55,13 @@ export function ClockCard({
 }: ClockCardProps) {
   const [editingIcon, setEditingIcon] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
+  const [editingPart, setEditingPart] = useState<TimePart | null>(null)
+  const [draftParts, setDraftParts] = useState(() => splitTime(clock.remainingMs))
   const [titleDraft, setTitleDraft] = useState(clock.label)
   const cancelTitle = useRef(false)
   const editorRef = useRef<HTMLDivElement>(null)
+  const faceRef = useRef<HTMLDivElement>(null)
+  const timeRef = useRef<HTMLDivElement>(null)
   const remaining = displayRemaining(clock, now)
   const ratio =
     clock.durationMs === 0 ? 0 : Math.min(1, Math.max(0, remaining / clock.durationMs))
@@ -62,6 +69,19 @@ export function ClockCard({
   const runLabel =
     clock.status === 'running' ? 'Pause' : remaining === clock.durationMs ? 'Start' : 'Resume'
   const statusLabel = urgent ? 'Ending' : clock.status === 'running' ? 'Running' : clock.status === 'paused' ? 'Paused' : 'Done'
+  const shown = editingPart ? draftParts : splitTime(remaining)
+
+  function choosePart(part: TimePart) {
+    if (editingPart === null) setDraftParts(splitTime(remaining))
+    setEditingPart((current) => (current === part ? null : part))
+  }
+
+  function changePart(next: number) {
+    if (!editingPart) return
+    const parts = { ...draftParts, [editingPart]: next }
+    setDraftParts(parts)
+    onTimeChange(parts.hours * 3600 + parts.minutes * 60 + parts.seconds)
+  }
 
   useEffect(() => {
     if (!editingIcon) return
@@ -79,6 +99,25 @@ export function ClockCard({
       window.removeEventListener('pointerdown', onPointer)
     }
   }, [editingIcon])
+
+  useEffect(() => {
+    if (!editingPart) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setEditingPart(null)
+    }
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (faceRef.current?.contains(target) || timeRef.current?.contains(target)) return
+      setEditingPart(null)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onPointer)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onPointer)
+    }
+  }, [editingPart])
 
   function commitTitle() {
     if (cancelTitle.current) {
@@ -184,25 +223,53 @@ export function ClockCard({
         </button>
       </div>
 
-      <div className="face" aria-hidden="true">
-        <svg viewBox={`0 0 ${SIZE} ${SIZE}`}>
-          <circle className="ring-track" cx={CENTER} cy={CENTER} r={RADIUS} strokeWidth={STROKE} />
-          <circle
-            className="ring-value"
-            cx={CENTER}
-            cy={CENTER}
-            r={RADIUS}
-            strokeWidth={STROKE}
-            strokeLinecap={ratio > 0.02 && ratio < 0.985 ? 'round' : 'butt'}
-            strokeDasharray={CIRCUMFERENCE}
-            strokeDashoffset={CIRCUMFERENCE * (1 - ratio)}
-            transform={`rotate(-90 ${CENTER} ${CENTER})`}
+      <div className="face" ref={faceRef}>
+        {editingPart ? (
+          <NumberWheel
+            label={PART_LABEL[editingPart]}
+            value={draftParts[editingPart]}
+            max={editingPart === 'hours' ? 99 : 59}
+            onChange={changePart}
           />
-        </svg>
+        ) : (
+          <svg viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
+            <circle className="ring-track" cx={CENTER} cy={CENTER} r={RADIUS} strokeWidth={STROKE} />
+            <circle
+              className="ring-value"
+              cx={CENTER}
+              cy={CENTER}
+              r={RADIUS}
+              strokeWidth={STROKE}
+              strokeLinecap={ratio > 0.02 && ratio < 0.985 ? 'round' : 'butt'}
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={CIRCUMFERENCE * (1 - ratio)}
+              transform={`rotate(-90 ${CENTER} ${CENTER})`}
+            />
+          </svg>
+        )}
       </div>
 
       <div className="readout">
-        <p className="time">{formatClock(remaining)}</p>
+        <div className="time" ref={timeRef}>
+          {TIME_PARTS.map((part, index) => (
+            <span key={part} className="time-group">
+              {index > 0 ? (
+                <span className="time-colon" aria-hidden="true">
+                  :
+                </span>
+              ) : null}
+              <button
+                type="button"
+                className="time-part"
+                aria-pressed={editingPart === part}
+                aria-label={`${PART_LABEL[part]} for ${clock.label}`}
+                onClick={() => choosePart(part)}
+              >
+                {String(shown[part]).padStart(2, '0')}
+              </button>
+            </span>
+          ))}
+        </div>
         <p className="status">
           <span className="dot" aria-hidden="true" />
           {statusLabel}
@@ -243,4 +310,23 @@ export function ClockCard({
       </div>
     </article>
   )
+}
+
+type TimePart = 'hours' | 'minutes' | 'seconds'
+
+const TIME_PARTS: readonly TimePart[] = ['hours', 'minutes', 'seconds']
+
+const PART_LABEL: Record<TimePart, string> = {
+  hours: 'Hours',
+  minutes: 'Minutes',
+  seconds: 'Seconds',
+}
+
+function splitTime(ms: number) {
+  const totalSeconds = Math.ceil(Math.max(0, ms) / 1000)
+  return {
+    hours: Math.floor(totalSeconds / 3600),
+    minutes: Math.floor((totalSeconds % 3600) / 60),
+    seconds: totalSeconds % 60,
+  }
 }

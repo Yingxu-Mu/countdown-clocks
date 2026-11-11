@@ -6,7 +6,7 @@ import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
 import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
-import { quickSetSeconds, rememberDuration } from './time'
+import { MAX_DURATION_MS, quickSetSeconds, rememberDuration } from './time'
 import type { Clock, SoundId, ThemeId } from './types'
 
 const THEME_COLOR: Record<ThemeId, string> = {
@@ -217,6 +217,23 @@ export default function App() {
     setClocks((current) => current.map((clock) => (clock.id === id ? { ...clock, icon } : clock)))
   }
 
+  function updateTime(id: string, totalSeconds: number) {
+    const time = Date.now()
+    setNow(time)
+    const next = Math.min(MAX_DURATION_MS, Math.max(0, Math.round(totalSeconds) * 1000))
+    setClocks((current) =>
+      current.map((clock) => {
+        if (clock.id !== id) return clock
+        if (next <= 0) return { ...clock, remainingMs: 0, endsAt: null, status: 'done' }
+        const fresh =
+          clock.status === 'done' || (clock.status === 'paused' && clock.remainingMs === clock.durationMs)
+        const durationMs = fresh ? next : Math.max(clock.durationMs, next)
+        if (clock.status === 'running') return { ...clock, durationMs, remainingMs: next, endsAt: time + next }
+        return { ...clock, durationMs, remainingMs: next, endsAt: null, status: 'paused' }
+      }),
+    )
+  }
+
   function updateTitle(id: string, label: string) {
     const next = label.trim().slice(0, 40)
     if (!next) return
@@ -355,6 +372,7 @@ export default function App() {
                   onDelete={() => deleteClock(clock.id)}
                   onIconChange={(icon) => updateIcon(clock.id, icon)}
                   onTitleChange={(label) => updateTitle(clock.id, label)}
+                  onTimeChange={(totalSeconds) => updateTime(clock.id, totalSeconds)}
                   onReorderPointerDown={(event) => onReorderPointerDown(clock.id, event)}
                   onReorderPointerMove={(event) => onReorderPointerMove(clock.id, event)}
                   onReorderPointerUp={(event) => onReorderPointerUp(clock.id, event)}

@@ -1,9 +1,7 @@
 import type { Clock } from './types'
 
 export const MAX_DURATION_MS = (99 * 60 * 60 + 59 * 60 + 59) * 1000
-export const STARTER_SECONDS = [5 * 60, 25 * 60, 60 * 60, 2 * 60 * 60, 3 * 60 * 60] as const
 
-const QUICK_SET_LIMIT = 6
 const RECENT_LIMIT = 8
 
 export function rememberDuration(recentSeconds: readonly number[], durationMs: number): number[] {
@@ -12,18 +10,6 @@ export function rememberDuration(recentSeconds: readonly number[], durationMs: n
     return [...recentSeconds]
   }
   return [seconds, ...recentSeconds.filter((item) => item !== seconds)].slice(0, RECENT_LIMIT)
-}
-
-export function quickSetSeconds(recentSeconds: readonly number[]): number[] {
-  const picked: number[] = []
-  const seen = new Set<number>()
-  for (const seconds of [...recentSeconds, ...STARTER_SECONDS]) {
-    if (!Number.isInteger(seconds) || seconds <= 0 || seen.has(seconds)) continue
-    seen.add(seconds)
-    picked.push(seconds)
-    if (picked.length === QUICK_SET_LIMIT) break
-  }
-  return picked
 }
 
 export function displayRemaining(clock: Clock, now: number): number {

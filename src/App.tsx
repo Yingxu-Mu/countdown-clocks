@@ -4,9 +4,10 @@ import { ClockCard } from './components/ClockCard'
 import { DraftClock } from './components/DraftClock'
 import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
+import { DEFAULT_CLOCK_ICON } from './icons'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
 import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
-import { MAX_DURATION_MS, quickSetSeconds, rememberDuration } from './time'
+import { MAX_DURATION_MS, rememberDuration } from './time'
 import type { Clock, SoundId, ThemeId } from './types'
 
 const THEME_COLOR: Record<ThemeId, string> = {
@@ -34,6 +35,8 @@ type Reorder = {
   startX: number
   startY: number
 }
+
+const DEFAULT_DURATION_MS = 5 * 60 * 1000
 
 function initialRecentSeconds(): number[] {
   const stored = loadSettings().recentSeconds
@@ -143,22 +146,22 @@ export default function App() {
     if (justFinished) playSound(sound)
   }, [clocks, sound])
 
-  function addClock(input: { label: string; durationMs: number; icon: string }) {
+  function addClock() {
     const time = Date.now()
     setNow(time)
     setClocks((current) => {
       const clock: Clock = {
         id: createId(),
-        label: input.label || nextLabel(current),
-        icon: input.icon,
-        durationMs: input.durationMs,
-        remainingMs: input.durationMs,
+        label: nextLabel(current),
+        icon: DEFAULT_CLOCK_ICON,
+        durationMs: DEFAULT_DURATION_MS,
+        remainingMs: DEFAULT_DURATION_MS,
         endsAt: null,
         status: 'paused',
       }
       return [...current, clock]
     })
-    setRecentSeconds((current) => rememberDuration(current, input.durationMs))
+    setRecentSeconds((current) => rememberDuration(current, DEFAULT_DURATION_MS))
   }
 
   function pauseClock(id: string) {
@@ -334,7 +337,7 @@ export default function App() {
         <div className="brand">
           <h1 className="wordmark">Clocks</h1>
           <p className="lede">
-            Add as many countdowns as you need. Set the next one on the wheels, and each clock pauses on its own.
+            Add as many countdowns as you need. Each new clock starts paused at five minutes.
           </p>
         </div>
         <div className="settings">
@@ -381,11 +384,7 @@ export default function App() {
               </li>
             ))}
             <li data-draft="true">
-              <DraftClock
-                suggestedLabel={nextLabel(clocks)}
-                presets={quickSetSeconds(recentSeconds)}
-                onAdd={addClock}
-              />
+              <DraftClock onAdd={addClock} />
             </li>
           </ul>
         </section>

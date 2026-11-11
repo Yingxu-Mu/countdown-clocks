@@ -18,6 +18,7 @@ export function DraftClock({ suggestedLabel, presets, onAdd }: DraftClockProps) 
   const [editingIcon, setEditingIcon] = useState(false)
   const [seconds, setSeconds] = useState(5 * 60)
   const [error, setError] = useState('')
+  const [open, setOpen] = useState(false)
 
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
@@ -57,10 +58,29 @@ export function DraftClock({ suggestedLabel, presets, onAdd }: DraftClockProps) 
     onAdd({ label: label.trim(), durationMs: seconds * 1000, icon })
     setLabel('')
     setError('')
+    setEditingIcon(false)
+    setOpen(false)
+  }
+
+  function discard() {
+    setLabel('')
+    setError('')
+    setEditingIcon(false)
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="draft-prompt" aria-label="Add a clock" onClick={() => setOpen(true)}>
+        <span className="draft-plus" aria-hidden="true">
+          +
+        </span>
+      </button>
+    )
   }
 
   return (
-    <article className="card card-draft" aria-label="New clock">
+    <article className="card" aria-label="New clock">
       <div className="card-top">
         <div className="card-heading">
           <div className="icon-editor" ref={editorRef}>
@@ -99,6 +119,9 @@ export function DraftClock({ suggestedLabel, presets, onAdd }: DraftClockProps) 
             />
           </h3>
         </div>
+        <button type="button" className="btn btn-quiet" aria-label="Delete new clock" onClick={discard}>
+          Delete
+        </button>
       </div>
 
       <div className="wheels" role="group" aria-label="Duration">

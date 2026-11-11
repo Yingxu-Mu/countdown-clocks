@@ -50,12 +50,10 @@ export function ClockCard({
   onReorderPointerUp,
   onReorderKeyDown,
 }: ClockCardProps) {
-  const [armed, setArmed] = useState(false)
   const [editingIcon, setEditingIcon] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(clock.label)
   const cancelTitle = useRef(false)
-  const deleteRef = useRef<HTMLButtonElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const remaining = displayRemaining(clock, now)
   const ratio =
@@ -82,23 +80,6 @@ export function ClockCard({
     }
   }, [editingIcon])
 
-  useEffect(() => {
-    if (!armed) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setArmed(false)
-    }
-    const onPointer = (event: PointerEvent) => {
-      if (event.target instanceof Node && deleteRef.current?.contains(event.target)) return
-      setArmed(false)
-    }
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('pointerdown', onPointer)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('pointerdown', onPointer)
-    }
-  }, [armed])
-
   function commitTitle() {
     if (cancelTitle.current) {
       cancelTitle.current = false
@@ -108,14 +89,6 @@ export function ClockCard({
     setEditingTitle(false)
     if (next && next !== clock.label) onTitleChange(next)
     else setTitleDraft(clock.label)
-  }
-
-  function requestDelete() {
-    if (!armed) {
-      setArmed(true)
-      return
-    }
-    onDelete()
   }
 
   return (
@@ -206,15 +179,8 @@ export function ClockCard({
             )}
           </h3>
         </div>
-        <button
-          ref={deleteRef}
-          type="button"
-          className="btn btn-quiet"
-          data-armed={armed ? 'true' : 'false'}
-          aria-label={armed ? `Confirm delete ${clock.label}` : `Delete ${clock.label}`}
-          onClick={requestDelete}
-        >
-          {armed ? 'Confirm' : 'Delete'}
+        <button type="button" className="btn btn-quiet" aria-label={`Delete ${clock.label}`} onClick={onDelete}>
+          Delete
         </button>
       </div>
 

@@ -38,11 +38,9 @@ type Reorder = {
 function initialRecentSeconds(): number[] {
   const stored = loadSettings().recentSeconds
   if (stored.length > 0) return stored
-  const clocks = loadClocks()
   let recent: number[] = []
-  for (let index = clocks.length - 1; index >= 0; index -= 1) {
-    const clock = clocks[index]
-    if (clock) recent = rememberDuration(recent, clock.durationMs)
+  for (const clock of loadClocks()) {
+    recent = rememberDuration(recent, clock.durationMs)
   }
   return recent
 }
@@ -158,7 +156,7 @@ export default function App() {
         endsAt: null,
         status: 'paused',
       }
-      return [clock, ...current]
+      return [...current, clock]
     })
     setRecentSeconds((current) => rememberDuration(current, input.durationMs))
   }

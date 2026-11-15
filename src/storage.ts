@@ -1,9 +1,13 @@
+import type { FocusEvent, FocusEventType } from './focus'
 import { normalizeIcon } from './icons'
 import { MAX_DURATION_MS, rememberDuration } from './time'
 import { isSoundId, isThemeId, type Clock, type ClockStatus, type Settings, type SoundId } from './types'
 
 const CLOCKS_KEY = 'countdown-clocks.clocks.v1'
 const SETTINGS_KEY = 'countdown-clocks.settings.v1'
+const EVENTS_KEY = 'countdown-clocks.events.v1'
+
+const FOCUS_EVENT_TYPES = new Set<FocusEventType>(['start', 'pause', 'resume', 'stop'])
 
 const DEFAULT_SETTINGS: Settings = { theme: 'paper', sound: 'bell', recentSeconds: [] }
 
@@ -123,11 +127,60 @@ export function saveSettings(settings: Settings) {
   }
 }
 
-export function subscribeStorage(onClocks: () => void, onSettings: () => void) {
+export function loadEvents(): FocusEvent[] {
+  try {
+    const raw = localStorage.getItem(EVENTS_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.flatMap((item) => {
+      const event = normalizeEvent(item)
+      return event ? [event] : []
+    })
+  } catch {
+    return []
+  }
+}
+
+export function saveEvents(events: readonly FocusEvent[]) {
+  try {
+    localStorage.setItem(EVENTS_KEY, JSON.stringify(events))
+  } catch {
+    // Private mode or a full disk can reject storage; the session still runs.
+  }
+}
+
+export function loadExpiredRuns(now = Date.now()): { id: string; at: number }[] {
+  try {
+    const raw = localStorage.getItem(CLOCKS_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.flatMap((item) => {
+      if (!isRecord(item)) return []
+      if (item.status !== 'running' || typeof item.id !== 'string') return []
+      if (typeof item.endsAt !== 'number' || !Number.isFinite(item.endsAt) || item.endsAt > now) return []
+      return [{ id: item.id, at: item.endsAt }]
+    })
+  } catch {
+    return []
+  }
+}
+
+export function subscribeStorage(onClocks: () => void, onSettings: () => void, onEvents: () => void) {
   const onStorage = (event: StorageEvent) => {
     if (event.key === CLOCKS_KEY) onClocks()
     else if (event.key === SETTINGS_KEY) onSettings()
+    else if (event.key === EVENTS_KEY) onEvents()
   }
   window.addEventListener('storage', onStorage)
   return () => window.removeEventListener('storage', onStorage)
+}
+
+function normalizeEvent(value: unknown): FocusEvent | null {
+  if (!isRecord(value)) return null
+  if (typeof value.clockId !== 'string' || value.clockId.length === 0 || value.clockId.length > 80) return null
+  if (typeof value.type !== 'string' || !FOCUS_EVENT_TYPES.has(value.type as FocusEventType)) return null
+  if (typeof value.at !== 'number' || !Number.isFinite(value.at)) return null
+  return { clockId: value.clockId, type: value.type as FocusEventType, at: value.at }
 }

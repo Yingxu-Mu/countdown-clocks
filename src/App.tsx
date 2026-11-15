@@ -4,9 +4,27 @@ import { ClockCard } from './components/ClockCard'
 import { DraftClock } from './components/DraftClock'
 import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
+import {
+  recordPause,
+  recordRestart,
+  recordRun,
+  recordStop,
+  summarizeFocus,
+  withoutClockEvents,
+  type FocusEvent,
+} from './focus'
 import { DEFAULT_CLOCK_ICON } from './icons'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
-import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
+import {
+  loadClocks,
+  loadEvents,
+  loadExpiredRuns,
+  loadSettings,
+  saveClocks,
+  saveEvents,
+  saveSettings,
+  subscribeStorage,
+} from './storage'
 import { MAX_DURATION_MS, rememberDuration } from './time'
 import type { Clock, SoundId, ThemeId } from './types'
 
@@ -50,11 +68,15 @@ function initialRecentSeconds(): number[] {
 
 export default function App() {
   const [clocks, setClocks] = useState<Clock[]>(loadClocks)
+  const [events, setEvents] = useState<FocusEvent[]>(() =>
+    loadExpiredRuns().reduce<FocusEvent[]>((current, run) => recordStop(current, run.id, run.at), loadEvents()),
+  )
   const [now, setNow] = useState(() => Date.now())
   const [theme, setTheme] = useState<ThemeId>(() => loadSettings().theme)
   const [sound, setSound] = useState<SoundId>(() => loadSettings().sound)
   const [recentSeconds, setRecentSeconds] = useState<number[]>(initialRecentSeconds)
   const finishedIds = useRef<Set<string> | null>(null)
+  const clocksRef = useRef(clocks)
   const reorder = useRef<Reorder | null>(null)
   const [drag, setDrag] = useState<DragBox | null>(null)
 
@@ -72,13 +94,29 @@ export default function App() {
   }, [theme, sound, recentSeconds])
 
   useEffect(() => {
+    clocksRef.current = clocks
+  }, [clocks])
+
+  useEffect(() => {
     saveClocks(clocks)
   }, [clocks])
+
+  useEffect(() => {
+    saveEvents(events)
+  }, [events])
 
   useEffect(() => {
     const sync = () => {
       const time = Date.now()
       setNow(time)
+      const finished = clocksRef.current.filter(
+        (clock) => clock.status === 'running' && clock.endsAt != null && clock.endsAt <= time,
+      )
+      if (finished.length > 0) {
+        setEvents((current) =>
+          finished.reduce((next, clock) => recordStop(next, clock.id, clock.endsAt ?? time), current),
+        )
+      }
       setClocks((current) => settleClocks(current, time))
     }
     sync()
@@ -108,6 +146,7 @@ export default function App() {
         setSound(next.sound)
         setRecentSeconds(next.recentSeconds)
       },
+      () => setEvents(loadEvents()),
     )
   }, [])
 
@@ -166,14 +205,17 @@ export default function App() {
 
   function pauseClock(id: string) {
     const time = Date.now()
+    const clock = clocksRef.current.find((item) => item.id === id)
+    if (!clock || clock.status !== 'running' || clock.endsAt == null) return
     setNow(time)
+    setEvents((current) => recordPause(current, id, time))
     setClocks((current) =>
-      current.map((clock) => {
-        if (clock.id !== id || clock.status !== 'running' || clock.endsAt == null) return clock
+      current.map((item) => {
+        if (item.id !== id || item.status !== 'running' || item.endsAt == null) return item
         return {
-          ...clock,
+          ...item,
           status: 'paused',
-          remainingMs: Math.max(0, clock.endsAt - time),
+          remainingMs: Math.max(0, item.endsAt - time),
           endsAt: null,
         }
       }),
@@ -183,14 +225,21 @@ export default function App() {
   function resumeClock(id: string) {
     unlockSound()
     const time = Date.now()
+    const clock = clocksRef.current.find((item) => item.id === id)
+    if (!clock || clock.status !== 'paused') return
     setNow(time)
+    if (clock.remainingMs <= 0) {
+      setEvents((current) => recordStop(current, id, time))
+    } else {
+      setEvents((current) => recordRun(current, id, time))
+    }
     setClocks((current) =>
-      current.map((clock) => {
-        if (clock.id !== id || clock.status !== 'paused') return clock
-        if (clock.remainingMs <= 0) {
-          return { ...clock, status: 'done', remainingMs: 0, endsAt: null }
+      current.map((item) => {
+        if (item.id !== id || item.status !== 'paused') return item
+        if (item.remainingMs <= 0) {
+          return { ...item, status: 'done', remainingMs: 0, endsAt: null }
         }
-        return { ...clock, status: 'running', endsAt: time + clock.remainingMs }
+        return { ...item, status: 'running', endsAt: time + item.remainingMs }
       }),
     )
   }
@@ -199,6 +248,7 @@ export default function App() {
     unlockSound()
     const time = Date.now()
     setNow(time)
+    setEvents((current) => recordRestart(current, id, time))
     setClocks((current) =>
       current.map((clock) => {
         if (clock.id !== id) return clock
@@ -214,6 +264,7 @@ export default function App() {
 
   function deleteClock(id: string) {
     setClocks((current) => current.filter((clock) => clock.id !== id))
+    setEvents((current) => withoutClockEvents(current, id))
   }
 
   function updateIcon(id: string, icon: string) {
@@ -224,6 +275,10 @@ export default function App() {
     const time = Date.now()
     setNow(time)
     const next = Math.min(MAX_DURATION_MS, Math.max(0, Math.round(totalSeconds) * 1000))
+    const previous = clocksRef.current.find((clock) => clock.id === id)
+    if (next <= 0 && previous && previous.status !== 'done') {
+      setEvents((current) => recordStop(current, id, time))
+    }
     setClocks((current) =>
       current.map((clock) => {
         if (clock.id !== id) return clock
@@ -376,6 +431,7 @@ export default function App() {
                   onIconChange={(icon) => updateIcon(clock.id, icon)}
                   onTitleChange={(label) => updateTitle(clock.id, label)}
                   onTimeChange={(totalSeconds) => updateTime(clock.id, totalSeconds)}
+                  focus={summarizeFocus(events, clock.id, now)}
                   onReorderPointerDown={(event) => onReorderPointerDown(clock.id, event)}
                   onReorderPointerMove={(event) => onReorderPointerMove(clock.id, event)}
                   onReorderPointerUp={(event) => onReorderPointerUp(clock.id, event)}

@@ -7,8 +7,10 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import type { Clock } from '../types'
+import type { FocusSummary } from '../focus'
 import { displayRemaining, formatClock, formatLength } from '../time'
 import { ClockIcon } from './ClockIcon'
+import { FocusReport } from './FocusReport'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
 
@@ -28,6 +30,7 @@ type ClockCardProps = {
   onIconChange: (icon: string) => void
   onTitleChange: (label: string) => void
   onTimeChange: (totalSeconds: number) => void
+  focus: FocusSummary | null
   dragging: boolean
   dragStyle?: CSSProperties
   onReorderPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -46,6 +49,7 @@ export function ClockCard({
   onIconChange,
   onTitleChange,
   onTimeChange,
+  focus,
   dragging,
   dragStyle,
   onReorderPointerDown,
@@ -277,6 +281,8 @@ export function ClockCard({
         </p>
         <p className="length">{formatLength(clock.durationMs)}</p>
       </div>
+
+      <FocusReport label={clock.label} summary={focus} />
 
       <div className="actions">
         {clock.status === 'done' ? (

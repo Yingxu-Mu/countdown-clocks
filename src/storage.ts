@@ -1,6 +1,6 @@
 import { normalizeIcon } from './icons'
 import { MAX_DURATION_MS, rememberDuration } from './time'
-import { isSoundId, isThemeId, type Clock, type ClockStatus, type Settings, type SoundId } from './types'
+import { isSoundId, isThemeId, type Clock, type ClockMode, type ClockStatus, type Settings, type SoundId } from './types'
 
 const CLOCKS_KEY = 'countdown-clocks.clocks.v1'
 const SETTINGS_KEY = 'countdown-clocks.settings.v1'
@@ -36,13 +36,38 @@ function normalizeClock(value: unknown, now: number): Clock | null {
   if (typeof value.remainingMs !== 'number' || !Number.isFinite(value.remainingMs)) return null
   if (value.status !== 'running' && value.status !== 'paused' && value.status !== 'done') return null
 
+  const mode: ClockMode = value.mode === 'up' ? 'up' : 'down'
   const durationMs = Math.min(MAX_DURATION_MS, Math.max(1000, Math.round(value.durationMs)))
   let remainingMs = Math.min(durationMs, Math.max(0, Math.round(value.remainingMs)))
+  let elapsedMs =
+    typeof value.elapsedMs === 'number' && Number.isFinite(value.elapsedMs)
+      ? Math.min(MAX_DURATION_MS, Math.max(0, Math.round(value.elapsedMs)))
+      : 0
   let status: ClockStatus = value.status
   let endsAt: number | null =
     typeof value.endsAt === 'number' && Number.isFinite(value.endsAt) ? value.endsAt : null
+  let runStartedAt: number | null =
+    typeof value.runStartedAt === 'number' && Number.isFinite(value.runStartedAt) ? value.runStartedAt : null
 
-  if (status === 'running') {
+  if (mode === 'up') {
+    endsAt = null
+    if (status === 'running') {
+      if (runStartedAt == null) {
+        status = 'paused'
+      } else {
+        const elapsed = elapsedMs + Math.max(0, now - runStartedAt)
+        if (elapsed >= MAX_DURATION_MS) {
+          status = 'paused'
+          elapsedMs = MAX_DURATION_MS
+          runStartedAt = null
+        }
+      }
+    } else {
+      status = 'paused'
+      runStartedAt = null
+    }
+  } else if (status === 'running') {
+    runStartedAt = null
     if (endsAt == null) {
       status = remainingMs <= 0 ? 'done' : 'paused'
     } else if (endsAt <= now) {
@@ -54,6 +79,7 @@ function normalizeClock(value: unknown, now: number): Clock | null {
     }
   } else if (status === 'paused') {
     endsAt = null
+    runStartedAt = null
     if (remainingMs <= 0) {
       status = 'done'
       remainingMs = 0
@@ -62,15 +88,19 @@ function normalizeClock(value: unknown, now: number): Clock | null {
     status = 'done'
     remainingMs = 0
     endsAt = null
+    runStartedAt = null
   }
 
   return {
     id: value.id,
     label: value.label.trim().slice(0, 40) || 'Clock',
     icon: normalizeIcon(value.icon),
+    mode,
     durationMs,
     remainingMs,
     endsAt,
+    elapsedMs,
+    runStartedAt,
     status,
   }
 }

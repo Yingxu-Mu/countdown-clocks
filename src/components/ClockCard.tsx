@@ -7,7 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import type { Clock } from '../types'
-import { displayRemaining, formatClock, formatLength } from '../time'
+import { MAX_DURATION_MS, displayClock, formatClock, formatLength } from '../time'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
@@ -23,11 +23,12 @@ type ClockCardProps = {
   now: number
   onPause: () => void
   onResume: () => void
-  onRestart: () => void
+  onReset: () => void
   onDelete: () => void
   onIconChange: (icon: string) => void
   onTitleChange: (label: string) => void
   onTimeChange: (totalSeconds: number) => void
+  onFlip: () => void
   dragging: boolean
   dragStyle?: CSSProperties
   onReorderPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -41,11 +42,12 @@ export function ClockCard({
   now,
   onPause,
   onResume,
-  onRestart,
+  onReset,
   onDelete,
   onIconChange,
   onTitleChange,
   onTimeChange,
+  onFlip,
   dragging,
   dragStyle,
   onReorderPointerDown,
@@ -56,23 +58,34 @@ export function ClockCard({
   const [editingIcon, setEditingIcon] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingPart, setEditingPart] = useState<TimePart | null>(null)
-  const [draftParts, setDraftParts] = useState(() => splitTime(clock.remainingMs))
+  const [seenMode, setSeenMode] = useState(clock.mode)
+  if (clock.mode !== seenMode) {
+    setSeenMode(clock.mode)
+    setEditingPart(null)
+  }
+  const countingUp = clock.mode === 'up'
+  const [draftParts, setDraftParts] = useState(() => splitTime(clock.remainingMs, countingUp))
   const [titleDraft, setTitleDraft] = useState(clock.label)
   const cancelTitle = useRef(false)
   const editorRef = useRef<HTMLDivElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
-  const remaining = displayRemaining(clock, now)
-  const ratio =
-    clock.durationMs === 0 ? 0 : Math.min(1, Math.max(0, remaining / clock.durationMs))
-  const urgent = clock.status === 'running' && remaining > 0 && remaining <= 10_000
-  const runLabel =
-    clock.status === 'running' ? 'Pause' : remaining === clock.durationMs ? 'Start' : 'Resume'
+  const shownMs = displayClock(clock, now)
+  const ratio = countingUp
+    ? (shownMs % 60_000) / 60_000
+    : clock.durationMs === 0
+      ? 0
+      : Math.min(1, Math.max(0, shownMs / clock.durationMs))
+  const urgent = !countingUp && clock.status === 'running' && shownMs > 0 && shownMs <= 10_000
+  const capped = countingUp && shownMs >= MAX_DURATION_MS
+  const fresh = countingUp ? shownMs === 0 : shownMs === clock.durationMs
+  const runLabel = clock.status === 'running' ? 'Pause' : fresh ? 'Start' : 'Resume'
   const statusLabel = urgent ? 'Ending' : clock.status === 'running' ? 'Running' : clock.status === 'paused' ? 'Paused' : 'Done'
-  const shown = editingPart ? draftParts : splitTime(remaining)
+  const shown = editingPart ? draftParts : splitTime(shownMs, countingUp)
+  const finished = (!countingUp && clock.status === 'done') || capped
 
   function choosePart(part: TimePart) {
-    if (editingPart === null) setDraftParts(splitTime(remaining))
+    if (editingPart === null) setDraftParts(splitTime(shownMs, countingUp))
     setEditingPart((current) => (current === part ? null : part))
   }
 
@@ -134,10 +147,11 @@ export function ClockCard({
     <article
       className="card"
       data-status={clock.status}
+      data-mode={clock.mode}
       data-urgent={urgent ? 'true' : 'false'}
       data-dragging={dragging ? 'true' : 'false'}
       style={dragStyle}
-      aria-label={`${clock.label}, ${statusLabel}, ${formatClock(remaining)}`}
+      aria-label={`${clock.label}, ${countingUp ? 'Counting up' : 'Counting down'}, ${statusLabel}, ${formatClock(shownMs, clock.mode)}`}
     >
       <div className="card-top">
         <button
@@ -275,18 +289,27 @@ export function ClockCard({
           <span className="dot" aria-hidden="true" />
           {statusLabel}
         </p>
-        <p className="length">{formatLength(clock.durationMs)}</p>
+        <p className="length">{countingUp ? 'Stopwatch' : formatLength(clock.durationMs)}</p>
+        <button
+          type="button"
+          className="mode-flip"
+          aria-pressed={countingUp}
+          aria-label={countingUp ? `Count down for ${clock.label}` : `Count up for ${clock.label}`}
+          onClick={onFlip}
+        >
+          {countingUp ? 'Count down' : 'Count up'}
+        </button>
       </div>
 
       <div className="actions">
-        {clock.status === 'done' ? (
+        {finished ? (
           <button
             type="button"
             className="btn btn-primary span"
-            aria-label={`Restart ${clock.label}`}
-            onClick={onRestart}
+            aria-label={`Reset ${clock.label}`}
+            onClick={onReset}
           >
-            Restart
+            Reset
           </button>
         ) : (
           <>
@@ -301,10 +324,10 @@ export function ClockCard({
             <button
               type="button"
               className="btn btn-secondary"
-              aria-label={`Restart ${clock.label}`}
-              onClick={onRestart}
+              aria-label={`Reset ${clock.label}`}
+              onClick={onReset}
             >
-              Restart
+              Reset
             </button>
           </>
         )}
@@ -323,8 +346,9 @@ const PART_LABEL: Record<TimePart, string> = {
   seconds: 'Seconds',
 }
 
-function splitTime(ms: number) {
-  const totalSeconds = Math.ceil(Math.max(0, ms) / 1000)
+function splitTime(ms: number, countingUp: boolean) {
+  const safe = typeof ms === 'number' && Number.isFinite(ms) ? Math.max(0, ms) : 0
+  const totalSeconds = countingUp ? Math.floor(safe / 1000) : Math.ceil(safe / 1000)
   return {
     hours: Math.floor(totalSeconds / 3600),
     minutes: Math.floor((totalSeconds % 3600) / 60),

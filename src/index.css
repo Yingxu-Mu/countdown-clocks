@@ -1074,6 +1074,25 @@ html[data-theme='signal'] .status {
   font-size: 14px;
 }
 
+.mode-flip {
+  appearance: none;
+  margin: 8px auto 0;
+  padding: 0 12px;
+  min-height: 32px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mode-flip:hover,
+.mode-flip[aria-pressed='true'] {
+  color: var(--ink);
+  background: var(--hover);
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

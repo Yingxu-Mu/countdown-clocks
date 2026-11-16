@@ -17,13 +17,18 @@ export type SoundId = (typeof SOUNDS)[number]['id']
 
 export type ClockStatus = 'running' | 'paused' | 'done'
 
+export type ClockMode = 'down' | 'up'
+
 export type Clock = {
   id: string
   label: string
   icon: string
+  mode: ClockMode
   durationMs: number
   remainingMs: number
   endsAt: number | null
+  elapsedMs: number
+  runStartedAt: number | null
   status: ClockStatus
 }
 

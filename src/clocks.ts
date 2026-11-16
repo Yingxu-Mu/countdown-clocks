@@ -1,3 +1,4 @@
+import { MAX_DURATION_MS, finiteMs } from './time'
 import type { Clock } from './types'
 
 export function createId(): string {
@@ -17,7 +18,13 @@ export function nextLabel(clocks: readonly Clock[]): string {
 export function settleClocks(clocks: readonly Clock[], now: number): Clock[] {
   let changed = false
   const next = clocks.map((clock) => {
-    if (clock.status === 'running' && clock.endsAt != null && clock.endsAt <= now) {
+    if (clock.mode === 'up' && clock.status === 'running' && clock.runStartedAt != null) {
+      const elapsed = finiteMs(clock.elapsedMs) + Math.max(0, now - clock.runStartedAt)
+      if (elapsed >= MAX_DURATION_MS) {
+        changed = true
+        return { ...clock, status: 'paused' as const, elapsedMs: MAX_DURATION_MS, runStartedAt: null }
+      }
+    } else if (clock.mode !== 'up' && clock.status === 'running' && clock.endsAt != null && clock.endsAt <= now) {
       changed = true
       return { ...clock, status: 'done' as const, remainingMs: 0, endsAt: null }
     }

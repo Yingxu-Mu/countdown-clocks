@@ -789,8 +789,48 @@ html[data-theme='tide'] .card[data-status='running'] {
   user-select: text;
 }
 
+.clock-stage {
+  perspective: 900px;
+}
+
+.clock-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transform-origin: center 78px;
+}
+
+.clock-body[data-flip='out'] {
+  animation: clock-flip-out 220ms ease-in forwards;
+  pointer-events: none;
+}
+
+.clock-body[data-flip='in'] {
+  animation: clock-flip-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+@keyframes clock-flip-out {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(-90deg);
+  }
+}
+
+@keyframes clock-flip-in {
+  from {
+    transform: rotateY(90deg);
+  }
+  to {
+    transform: rotateY(0deg);
+  }
+}
+
 .face {
   --dial: 148px;
+  position: relative;
   width: var(--dial);
   height: var(--dial);
   margin: 4px auto 0;
@@ -1076,21 +1116,40 @@ html[data-theme='signal'] .status {
 
 .mode-flip {
   appearance: none;
-  margin: 8px auto 0;
-  padding: 0 12px;
-  min-height: 32px;
-  border: 1px solid var(--line);
-  border-radius: var(--control-radius);
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
 
 .mode-flip:hover,
-.mode-flip[aria-pressed='true'] {
+.mode-flip:focus-visible {
   color: var(--ink);
   background: var(--hover);
+}
+
+.flip-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.mode-flip:hover .flip-icon,
+.mode-flip:focus-visible .flip-icon {
+  transform: rotateY(180deg);
 }
 
 .actions {

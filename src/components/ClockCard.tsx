@@ -7,7 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import type { Clock } from '../types'
-import { MAX_DURATION_MS, displayClock, formatClock, formatLength } from '../time'
+import { MAX_DURATION_MS, displayClock, formatClock } from '../time'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
@@ -70,6 +70,32 @@ export function ClockCard({
   const editorRef = useRef<HTMLDivElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
+  const [flipPhase, setFlipPhase] = useState<'out' | 'in' | null>(null)
+  const flipTimers = useRef<number[]>([])
+
+  useEffect(() => {
+    return () => {
+      for (const id of flipTimers.current) window.clearTimeout(id)
+    }
+  }, [])
+
+  function flipClock() {
+    if (flipPhase) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      onFlip()
+      return
+    }
+    for (const id of flipTimers.current) window.clearTimeout(id)
+    flipTimers.current = []
+    setFlipPhase('out')
+    flipTimers.current.push(
+      window.setTimeout(() => {
+        onFlip()
+        setFlipPhase('in')
+        flipTimers.current.push(window.setTimeout(() => setFlipPhase(null), 280))
+      }, 220),
+    )
+  }
   const shownMs = displayClock(clock, now)
   const ratio = countingUp
     ? (shownMs % 60_000) / 60_000
@@ -237,68 +263,74 @@ export function ClockCard({
         </button>
       </div>
 
-      <div className="face" ref={faceRef}>
-        {editingPart ? (
-          <NumberWheel
-            key={editingPart}
-            label={PART_LABEL[editingPart]}
-            value={draftParts[editingPart]}
-            max={editingPart === 'hours' ? 99 : 59}
-            onChange={changePart}
-          />
-        ) : (
-          <svg viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
-            <circle className="ring-track" cx={CENTER} cy={CENTER} r={RADIUS} strokeWidth={STROKE} />
-            <circle
-              className="ring-value"
-              cx={CENTER}
-              cy={CENTER}
-              r={RADIUS}
-              strokeWidth={STROKE}
-              strokeLinecap={ratio > 0.02 && ratio < 0.985 ? 'round' : 'butt'}
-              strokeDasharray={CIRCUMFERENCE}
-              strokeDashoffset={CIRCUMFERENCE * (1 - ratio)}
-              transform={`rotate(-90 ${CENTER} ${CENTER})`}
-            />
-          </svg>
-        )}
-      </div>
-
-      <div className="readout">
-        <div className="time" ref={timeRef}>
-          {TIME_PARTS.map((part, index) => (
-            <span key={part} className="time-group">
-              {index > 0 ? (
-                <span className="time-colon" aria-hidden="true">
-                  :
-                </span>
-              ) : null}
+      <div className="clock-stage">
+        <div className="clock-body" data-flip={flipPhase ?? undefined}>
+          <div className="face" ref={faceRef}>
+            {editingPart ? (
+              <NumberWheel
+                key={editingPart}
+                label={PART_LABEL[editingPart]}
+                value={draftParts[editingPart]}
+                max={editingPart === 'hours' ? 99 : 59}
+                onChange={changePart}
+              />
+            ) : (
+              <svg viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true">
+                <circle className="ring-track" cx={CENTER} cy={CENTER} r={RADIUS} strokeWidth={STROKE} />
+                <circle
+                  className="ring-value"
+                  cx={CENTER}
+                  cy={CENTER}
+                  r={RADIUS}
+                  strokeWidth={STROKE}
+                  strokeLinecap={ratio > 0.02 && ratio < 0.985 ? 'round' : 'butt'}
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeDashoffset={CIRCUMFERENCE * (1 - ratio)}
+                  transform={`rotate(-90 ${CENTER} ${CENTER})`}
+                />
+              </svg>
+            )}
+            {editingPart ? null : (
               <button
                 type="button"
-                className="time-part"
-                aria-pressed={editingPart === part}
-                aria-label={`${PART_LABEL[part]} for ${clock.label}`}
-                onClick={() => choosePart(part)}
+                className="mode-flip"
+                aria-pressed={countingUp}
+                aria-label={countingUp ? `Count down for ${clock.label}` : `Count up for ${clock.label}`}
+                onClick={flipClock}
               >
-                {String(shown[part]).padStart(2, '0')}
+                <FlipIcon />
               </button>
-            </span>
-          ))}
+            )}
+          </div>
+
+          <div className="readout">
+            <div className="time" ref={timeRef}>
+              {TIME_PARTS.map((part, index) => (
+                <span key={part} className="time-group">
+                  {index > 0 ? (
+                    <span className="time-colon" aria-hidden="true">
+                      :
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="time-part"
+                    aria-pressed={editingPart === part}
+                    aria-label={`${PART_LABEL[part]} for ${clock.label}`}
+                    onClick={() => choosePart(part)}
+                  >
+                    {String(shown[part]).padStart(2, '0')}
+                  </button>
+                </span>
+              ))}
+            </div>
+            <p className="status">
+              <span className="dot" aria-hidden="true" />
+              {statusLabel}
+            </p>
+            <p className="length">{countingUp ? 'Stopwatch' : 'Countdown'}</p>
+          </div>
         </div>
-        <p className="status">
-          <span className="dot" aria-hidden="true" />
-          {statusLabel}
-        </p>
-        <p className="length">{countingUp ? 'Stopwatch' : formatLength(clock.durationMs)}</p>
-        <button
-          type="button"
-          className="mode-flip"
-          aria-pressed={countingUp}
-          aria-label={countingUp ? `Count down for ${clock.label}` : `Count up for ${clock.label}`}
-          onClick={onFlip}
-        >
-          {countingUp ? 'Count down' : 'Count up'}
-        </button>
       </div>
 
       <div className="actions">
@@ -344,6 +376,43 @@ const PART_LABEL: Record<TimePart, string> = {
   hours: 'Hours',
   minutes: 'Minutes',
   seconds: 'Seconds',
+}
+
+function FlipIcon() {
+  return (
+    <svg className="flip-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M4.5 8.4c2.3-2.5 5.4-3.7 8.4-3.2 2.3.4 4.2 1.7 5.3 3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <path
+        d="M15.4 6.4 18.5 8.8 15.6 11.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M19.5 15.6c-2.3 2.5-5.4 3.7-8.4 3.2-2.3-.4-4.2-1.7-5.3-3.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <path
+        d="M8.6 17.6 5.5 15.2 8.4 12.8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
 }
 
 function splitTime(ms: number, countingUp: boolean) {

@@ -6,6 +6,7 @@ import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
 import { DEFAULT_CLOCK_ICON } from './icons'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
+import { indexUnderPoint, type FrozenSlot } from './reorder'
 import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
 import { MAX_DURATION_MS, finiteMs, rememberDuration } from './time'
 import type { Clock, SoundId, ThemeId } from './types'
@@ -31,12 +32,38 @@ type Reorder = {
   offsetY: number
   width: number
   height: number
+  cardHeight: number
+  slots: FrozenSlot[]
+  slot: number | null
   moved: boolean
   startX: number
   startY: number
+  point: { x: number; y: number } | null
+  frame: number
+  stop: (() => void) | null
 }
 
 const DEFAULT_DURATION_MS = 5 * 60 * 1000
+
+function gridSlots(): FrozenSlot[] {
+  const slots: FrozenSlot[] = []
+  let index = 0
+  for (const node of document.querySelectorAll('.clock-grid > li')) {
+    if (!(node instanceof HTMLElement)) continue
+    const rect = node.getBoundingClientRect()
+    const draft = node.dataset.draft != null
+    if (!draft && !node.dataset.clockId) continue
+    slots.push({
+      index: draft ? -1 : index,
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+    })
+    if (!draft) index += 1
+  }
+  return slots
+}
 
 function initialRecentSeconds(): number[] {
   const stored = loadSettings().recentSeconds
@@ -57,6 +84,15 @@ export default function App() {
   const finishedIds = useRef<Set<string> | null>(null)
   const reorder = useRef<Reorder | null>(null)
   const [drag, setDrag] = useState<DragBox | null>(null)
+
+  useEffect(
+    () => () => {
+      const active = reorder.current
+      if (active?.frame) window.cancelAnimationFrame(active.frame)
+      active?.stop?.()
+    },
+    [],
+  )
 
   if (finishedIds.current === null) {
     finishedIds.current = new Set(
@@ -314,71 +350,135 @@ export default function App() {
     setClocks((current) => current.map((clock) => (clock.id === id ? { ...clock, label: next } : clock)))
   }
 
+  function finishReorder() {
+    const active = reorder.current
+    if (active?.frame) window.cancelAnimationFrame(active.frame)
+    active?.stop?.()
+    reorder.current = null
+    setDrag(null)
+  }
+
+  function applyReorder(id: string, clientX: number, clientY: number) {
+    const current = reorder.current
+    if (!current || current.id !== id) return
+    const dx = clientX - current.startX
+    const dy = clientY - current.startY
+    if (!current.moved) {
+      if (dx * dx + dy * dy < 16) return
+      current.moved = true
+      current.slots = gridSlots()
+    }
+    const left = clientX - current.offsetX
+    const top = clientY - current.offsetY
+    setDrag({
+      id,
+      left,
+      top,
+      width: current.width,
+      height: current.height,
+    })
+    const slot = indexUnderPoint(
+      current.slots,
+      left + current.width / 2,
+      top + current.cardHeight / 2,
+    )
+    if (slot == null || slot === current.slot) return
+    current.slot = slot
+    setClocks((clocks) => {
+      const from = clocks.findIndex((clock) => clock.id === id)
+      if (from < 0) return clocks
+      const next = [...clocks]
+      const [clock] = next.splice(from, 1)
+      if (!clock) return clocks
+      next.splice(Math.min(slot < 0 ? next.length : slot, next.length), 0, clock)
+      if (next.every((item, index) => item.id === clocks[index]?.id)) return clocks
+      return next
+    })
+  }
+
+  function queueReorder(id: string, pointerId: number, clientX: number, clientY: number) {
+    const current = reorder.current
+    if (!current || current.id !== id || current.pointerId !== pointerId) return
+    current.point = { x: clientX, y: clientY }
+    if (current.frame) return
+    current.frame = window.requestAnimationFrame(() => {
+      const latest = reorder.current
+      if (!latest || latest.id !== id) return
+      latest.frame = 0
+      const point = latest.point
+      if (!point) return
+      applyReorder(id, point.x, point.y)
+    })
+  }
+
   function onReorderPointerDown(id: string, event: PointerEvent<HTMLButtonElement>) {
     if (event.button !== 0) return
     const card = event.currentTarget.closest('article')
     const item = event.currentTarget.closest('li')
     if (!(card instanceof HTMLElement) || !(item instanceof HTMLElement)) return
+    event.preventDefault()
     const rect = card.getBoundingClientRect()
     const itemRect = item.getBoundingClientRect()
-    event.currentTarget.setPointerCapture(event.pointerId)
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // A fast drag still follows the pointer through the window listener.
+    }
+    finishReorder()
+    const pointerId = event.pointerId
+    const onMove = (native: globalThis.PointerEvent) => {
+      if (native.pointerId !== pointerId) return
+      queueReorder(id, pointerId, native.clientX, native.clientY)
+    }
+    const onUp = (native: globalThis.PointerEvent) => {
+      if (native.pointerId !== pointerId) return
+      const active = reorder.current
+      if (active?.frame) {
+        window.cancelAnimationFrame(active.frame)
+        active.frame = 0
+      }
+      if (active?.point) applyReorder(id, active.point.x, active.point.y)
+      finishReorder()
+    }
     reorder.current = {
       id,
-      pointerId: event.pointerId,
+      pointerId,
       offsetX: event.clientX - rect.left,
       offsetY: event.clientY - rect.top,
       width: rect.width,
       height: itemRect.height,
+      cardHeight: rect.height,
+      slots: gridSlots(),
+      slot: null,
       moved: false,
       startX: event.clientX,
       startY: event.clientY,
+      point: null,
+      frame: 0,
+      stop: () => {
+        window.removeEventListener('pointermove', onMove, true)
+        window.removeEventListener('pointerup', onUp, true)
+        window.removeEventListener('pointercancel', onUp, true)
+      },
     }
+    window.addEventListener('pointermove', onMove, true)
+    window.addEventListener('pointerup', onUp, true)
+    window.addEventListener('pointercancel', onUp, true)
   }
 
   function onReorderPointerMove(id: string, event: PointerEvent<HTMLButtonElement>) {
-    const current = reorder.current
-    if (!current || current.id !== id || current.pointerId !== event.pointerId) return
-    const dx = event.clientX - current.startX
-    const dy = event.clientY - current.startY
-    if (!current.moved) {
-      if (dx * dx + dy * dy < 16) return
-      current.moved = true
-    }
-    setDrag({
-      id,
-      left: event.clientX - current.offsetX,
-      top: event.clientY - current.offsetY,
-      width: current.width,
-      height: current.height,
-    })
-    const slot = document.elementsFromPoint(event.clientX, event.clientY).find((node) => {
-      if (!(node instanceof HTMLElement)) return false
-      const item = node.closest('li')
-      if (!(item instanceof HTMLElement) || !item.parentElement?.classList.contains('clock-grid')) return false
-      return item.dataset.clockId !== id
-    })
-    if (!(slot instanceof HTMLElement)) return
-    const item = slot.closest('li')
-    if (!(item instanceof HTMLElement)) return
-    const targetId = item.dataset.draft != null ? null : item.dataset.clockId
-    if (item.dataset.draft == null && !targetId) return
-    setClocks((current) => {
-      const toIndex = targetId == null ? current.length - 1 : current.findIndex((clock) => clock.id === targetId)
-      const from = current.findIndex((clock) => clock.id === id)
-      if (from < 0 || toIndex < 0 || toIndex >= current.length || from === toIndex) return current
-      const next = [...current]
-      const [clock] = next.splice(from, 1)
-      if (!clock) return current
-      next.splice(toIndex, 0, clock)
-      return next
-    })
+    queueReorder(id, event.pointerId, event.clientX, event.clientY)
   }
 
   function onReorderPointerUp(id: string, event: PointerEvent<HTMLButtonElement>) {
     const current = reorder.current
     if (!current || current.id !== id || current.pointerId !== event.pointerId) return
-    reorder.current = null
-    setDrag(null)
+    if (current.frame) {
+      window.cancelAnimationFrame(current.frame)
+      current.frame = 0
+    }
+    if (current.point) applyReorder(id, current.point.x, current.point.y)
+    finishReorder()
   }
 
   function onReorderKeyDown(id: string, event: KeyboardEvent<HTMLButtonElement>) {

@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createId, nextLabel, settleClocks, summarize } from './clocks'
 import { ClockCard } from './components/ClockCard'
 import { DraftClock } from './components/DraftClock'
 import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
 import { DEFAULT_CLOCK_ICON } from './icons'
-import { freshLedger, noteEdit, noteFlip, noteKind, notePause, noteReset, noteStart } from './ledger'
+import { freshLedger, noteEdit, noteFlip, noteKind, notePause, noteReset, noteStart, repairUncountedFinish } from './ledger'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
 import { indexUnderPoint, type FrozenSlot } from './reorder'
 import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
@@ -83,6 +83,8 @@ export default function App() {
   const [sound, setSound] = useState<SoundId>(() => loadSettings().sound)
   const [recentSeconds, setRecentSeconds] = useState<number[]>(initialRecentSeconds)
   const finishedIds = useRef<Set<string> | null>(null)
+  const clockSnapshot = useRef(clocks)
+  const settleRef = useRef(settleClocks)
   const reorder = useRef<Reorder | null>(null)
   const [drag, setDrag] = useState<DragBox | null>(null)
 
@@ -113,10 +115,30 @@ export default function App() {
   }, [clocks])
 
   useEffect(() => {
+    settleRef.current = settleClocks
+  })
+
+  useLayoutEffect(() => {
+    const previous = clockSnapshot.current
+    clockSnapshot.current = clocks
+    const seen = finishedIds.current
+    if (!seen) return
+    let changed = false
+    const next = clocks.map((clock) => {
+      const before = previous.find((item) => item.id === clock.id)
+      if (!before || seen.has(clock.id)) return clock
+      const repaired = repairUncountedFinish(before, clock)
+      if (repaired !== clock) changed = true
+      return repaired
+    })
+    if (changed) setClocks(next)
+  }, [clocks])
+
+  useEffect(() => {
     const sync = () => {
       const time = Date.now()
       setNow(time)
-      setClocks((current) => settleClocks(current, time))
+      setClocks((current) => settleRef.current(current, time))
     }
     sync()
     const id = window.setInterval(sync, 100)

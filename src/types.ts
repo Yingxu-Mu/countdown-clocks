@@ -19,16 +19,24 @@ export type ClockStatus = 'running' | 'paused' | 'done'
 
 export type ClockMode = 'down' | 'up'
 
+export type ClockKind = 'accumulate' | 'continuous'
+
 export type Clock = {
   id: string
   label: string
   icon: string
   mode: ClockMode
+  kind: ClockKind
   durationMs: number
   remainingMs: number
   endsAt: number | null
   elapsedMs: number
   runStartedAt: number | null
+  accruedMs: number
+  accruedFrom: number | null
+  successes: number
+  failures: number
+  attemptOpen: boolean
   status: ClockStatus
 }
 

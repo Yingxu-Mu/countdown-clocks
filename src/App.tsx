@@ -5,11 +5,12 @@ import { DraftClock } from './components/DraftClock'
 import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
 import { DEFAULT_CLOCK_ICON } from './icons'
+import { freshLedger, noteEdit, noteFlip, noteKind, notePause, noteReset, noteStart } from './ledger'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
 import { indexUnderPoint, type FrozenSlot } from './reorder'
 import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
 import { MAX_DURATION_MS, finiteMs, rememberDuration } from './time'
-import type { Clock, SoundId, ThemeId } from './types'
+import type { Clock, ClockKind, SoundId, ThemeId } from './types'
 
 const THEME_COLOR: Record<ThemeId, string> = {
   paper: '#f3efe6',
@@ -197,6 +198,7 @@ export default function App() {
         elapsedMs: 0,
         runStartedAt: null,
         status: 'paused',
+        ...freshLedger(),
       }
       return [...current, clock]
     })
@@ -209,10 +211,11 @@ export default function App() {
     setClocks((current) =>
       current.map((clock) => {
         if (clock.id !== id || clock.status !== 'running') return clock
+        const noted = notePause(clock, time)
         if (clock.mode === 'up') {
           if (clock.runStartedAt == null) return clock
           return {
-            ...clock,
+            ...noted,
             status: 'paused',
             elapsedMs: Math.min(MAX_DURATION_MS, finiteMs(clock.elapsedMs) + Math.max(0, time - clock.runStartedAt)),
             runStartedAt: null,
@@ -220,7 +223,7 @@ export default function App() {
         }
         if (clock.endsAt == null) return clock
         return {
-          ...clock,
+          ...noted,
           status: 'paused',
           remainingMs: Math.max(0, clock.endsAt - time),
           endsAt: null,
@@ -238,12 +241,12 @@ export default function App() {
         if (clock.id !== id || clock.status !== 'paused') return clock
         if (clock.mode === 'up') {
           if (finiteMs(clock.elapsedMs) >= MAX_DURATION_MS) return clock
-          return { ...clock, status: 'running', runStartedAt: time }
+          return { ...noteStart(clock, time), status: 'running', runStartedAt: time }
         }
         if (clock.remainingMs <= 0) {
           return { ...clock, status: 'done', remainingMs: 0, endsAt: null }
         }
-        return { ...clock, status: 'running', endsAt: time + clock.remainingMs }
+        return { ...noteStart(clock, time), status: 'running', endsAt: time + clock.remainingMs }
       }),
     )
   }
@@ -256,16 +259,17 @@ export default function App() {
       current.map((clock) => {
         if (clock.id !== id) return clock
         const running = clock.status === 'running'
+        const noted = noteReset(clock, time, running)
         if (clock.mode === 'up') {
           return {
-            ...clock,
+            ...noted,
             status: running ? 'running' : 'paused',
             elapsedMs: 0,
             runStartedAt: running ? time : null,
           }
         }
         return {
-          ...clock,
+          ...noted,
           status: running ? 'running' : 'paused',
           remainingMs: clock.durationMs,
           endsAt: running ? time + clock.durationMs : null,
@@ -280,13 +284,14 @@ export default function App() {
     setClocks((current) =>
       current.map((clock) => {
         if (clock.id !== id) return clock
+        const noted = noteFlip(clock, time)
         if (clock.mode === 'up') {
           const elapsedMs =
             clock.status === 'running' && clock.runStartedAt != null
               ? Math.min(MAX_DURATION_MS, finiteMs(clock.elapsedMs) + Math.max(0, time - clock.runStartedAt))
               : finiteMs(clock.elapsedMs)
           return {
-            ...clock,
+            ...noted,
             mode: 'down',
             elapsedMs,
             runStartedAt: null,
@@ -299,7 +304,7 @@ export default function App() {
             ? Math.max(0, clock.endsAt - time)
             : clock.remainingMs
         return {
-          ...clock,
+          ...noted,
           mode: 'up',
           remainingMs: finiteMs(remainingMs),
           elapsedMs: finiteMs(clock.elapsedMs),
@@ -329,19 +334,27 @@ export default function App() {
         if (clock.mode === 'up') {
           const elapsedMs = next
           if (elapsedMs >= MAX_DURATION_MS) {
-            return { ...clock, elapsedMs: MAX_DURATION_MS, runStartedAt: null, status: 'paused' }
+            return { ...noteEdit(clock, time, false), elapsedMs: MAX_DURATION_MS, runStartedAt: null, status: 'paused' }
           }
-          if (clock.status === 'running') return { ...clock, elapsedMs, runStartedAt: time }
-          return { ...clock, elapsedMs, runStartedAt: null, status: 'paused' }
+          if (clock.status === 'running') {
+            return { ...noteEdit(clock, time, true), elapsedMs, runStartedAt: time, status: 'running' }
+          }
+          return { ...noteEdit(clock, time, false), elapsedMs, runStartedAt: null, status: 'paused' }
         }
-        if (next <= 0) return { ...clock, remainingMs: 0, endsAt: null, status: 'done' }
+        if (next <= 0) return { ...noteEdit(clock, time, false), remainingMs: 0, endsAt: null, status: 'done' }
         const fresh =
           clock.status === 'done' || (clock.status === 'paused' && clock.remainingMs === clock.durationMs)
         const durationMs = fresh ? next : Math.max(clock.durationMs, next)
-        if (clock.status === 'running') return { ...clock, durationMs, remainingMs: next, endsAt: time + next }
-        return { ...clock, durationMs, remainingMs: next, endsAt: null, status: 'paused' }
+        if (clock.status === 'running') {
+          return { ...noteEdit(clock, time, true), durationMs, remainingMs: next, endsAt: time + next, status: 'running' }
+        }
+        return { ...noteEdit(clock, time, false), durationMs, remainingMs: next, endsAt: null, status: 'paused' }
       }),
     )
+  }
+
+  function updateKind(id: string, kind: ClockKind) {
+    setClocks((current) => current.map((clock) => (clock.id === id ? noteKind(clock, kind) : clock)))
   }
 
   function updateTitle(id: string, label: string) {
@@ -548,6 +561,7 @@ export default function App() {
                   onTitleChange={(label) => updateTitle(clock.id, label)}
                   onTimeChange={(totalSeconds) => updateTime(clock.id, totalSeconds)}
                   onFlip={() => flipClock(clock.id)}
+                  onKind={(kind) => updateKind(clock.id, kind)}
                   onReorderPointerDown={(event) => onReorderPointerDown(clock.id, event)}
                   onReorderPointerMove={(event) => onReorderPointerMove(clock.id, event)}
                   onReorderPointerUp={(event) => onReorderPointerUp(clock.id, event)}
@@ -563,8 +577,8 @@ export default function App() {
       </main>
 
       <p className="footnote">
-        Saved in this browser. A running clock keeps its deadline if you leave the tab. Sound plays the
-        finish tone you picked when a clock ends.
+        Saved in this browser. A running clock keeps its deadline if you leave the tab. Time spent
+        running stays on the back of each clock. Sound plays the finish tone you picked when a clock ends.
       </p>
     </div>
   )

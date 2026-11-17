@@ -6,8 +6,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import type { Clock } from '../types'
+import type { Clock, ClockKind } from '../types'
 import { MAX_DURATION_MS, displayClock, formatClock } from '../time'
+import { ClockBack, TurnButton } from './ClockBack'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
@@ -29,6 +30,7 @@ type ClockCardProps = {
   onTitleChange: (label: string) => void
   onTimeChange: (totalSeconds: number) => void
   onFlip: () => void
+  onKind: (kind: ClockKind) => void
   dragging: boolean
   dragStyle?: CSSProperties
   onReorderPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -48,6 +50,7 @@ export function ClockCard({
   onTitleChange,
   onTimeChange,
   onFlip,
+  onKind,
   dragging,
   dragStyle,
   onReorderPointerDown,
@@ -70,6 +73,10 @@ export function ClockCard({
   const editorRef = useRef<HTMLDivElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
+  const [turned, setTurned] = useState(false)
+  const [settled, setSettled] = useState(false)
+  const [turning, setTurning] = useState(false)
+  const facesRef = useRef<HTMLDivElement>(null)
   const [flipPhase, setFlipPhase] = useState<'out' | 'in' | null>(null)
   const flipTimers = useRef<number[]>([])
 
@@ -78,6 +85,37 @@ export function ClockCard({
       for (const id of flipTimers.current) window.clearTimeout(id)
     }
   }, [])
+
+  function showBack() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setTurning(false)
+      setTurned(true)
+      setSettled(true)
+      return
+    }
+    setSettled(false)
+    setTurning(true)
+    setTurned(true)
+  }
+
+  function showFront() {
+    const faces = facesRef.current
+    if (!faces || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setTurning(false)
+      setTurned(false)
+      setSettled(false)
+      return
+    }
+    faces.style.transition = 'none'
+    setSettled(false)
+    setTurning(true)
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        faces.style.transition = ''
+        setTurned(false)
+      })
+    })
+  }
 
   function flipClock() {
     if (flipPhase) return
@@ -171,14 +209,35 @@ export function ClockCard({
 
   return (
     <article
-      className="card"
-      data-status={clock.status}
-      data-mode={clock.mode}
-      data-urgent={urgent ? 'true' : 'false'}
+      className="card card-shell"
       data-dragging={dragging ? 'true' : 'false'}
       style={dragStyle}
-      aria-label={`${clock.label}, ${countingUp ? 'Counting up' : 'Counting down'}, ${statusLabel}, ${formatClock(shownMs, clock.mode)}`}
+      aria-label={
+        turned
+          ? `${clock.label}, kept time`
+          : `${clock.label}, ${countingUp ? 'Counting up' : 'Counting down'}, ${statusLabel}, ${formatClock(shownMs, clock.mode)}`
+      }
     >
+      <div className="card-scene">
+        <div
+          className="card-faces"
+          data-turned={turned ? 'true' : 'false'}
+          data-settled={settled ? 'true' : 'false'}
+          data-turning={turning ? 'true' : 'false'}
+          ref={facesRef}
+          onTransitionEnd={(event) => {
+            if (event.target !== facesRef.current || event.propertyName !== 'transform') return
+            setTurning(false)
+            if (turned) setSettled(true)
+          }}
+        >
+          <div
+            className="card card-face card-front"
+            data-status={clock.status}
+            data-mode={clock.mode}
+            data-urgent={urgent ? 'true' : 'false'}
+            inert={turned}
+          >
       <div className="card-top">
         <button
           type="button"
@@ -258,9 +317,12 @@ export function ClockCard({
             )}
           </h3>
         </div>
-        <button type="button" className="btn btn-quiet" aria-label={`Delete ${clock.label}`} onClick={onDelete}>
-          Delete
-        </button>
+        <div className="card-tools">
+          <TurnButton label={`Show kept time for ${clock.label}`} onClick={showBack} />
+          <button type="button" className="btn btn-quiet" aria-label={`Delete ${clock.label}`} onClick={onDelete}>
+            Delete
+          </button>
+        </div>
       </div>
 
       <div className="clock-stage">
@@ -363,6 +425,18 @@ export function ClockCard({
             </button>
           </>
         )}
+      </div>
+          </div>
+          <div inert={turned ? undefined : true}>
+            <ClockBack
+              clock={clock}
+              now={now}
+              onKind={onKind}
+              onTurn={showFront}
+              onDelete={onDelete}
+            />
+          </div>
+        </div>
       </div>
     </article>
   )

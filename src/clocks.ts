@@ -1,3 +1,4 @@
+import { noteDone, notePause } from './ledger'
 import { MAX_DURATION_MS, finiteMs } from './time'
 import type { Clock } from './types'
 
@@ -22,11 +23,22 @@ export function settleClocks(clocks: readonly Clock[], now: number): Clock[] {
       const elapsed = finiteMs(clock.elapsedMs) + Math.max(0, now - clock.runStartedAt)
       if (elapsed >= MAX_DURATION_MS) {
         changed = true
-        return { ...clock, status: 'paused' as const, elapsedMs: MAX_DURATION_MS, runStartedAt: null }
+        const capAt = clock.runStartedAt + Math.max(0, MAX_DURATION_MS - finiteMs(clock.elapsedMs))
+        return {
+          ...notePause(clock, capAt),
+          status: 'paused' as const,
+          elapsedMs: MAX_DURATION_MS,
+          runStartedAt: null,
+        }
       }
     } else if (clock.mode !== 'up' && clock.status === 'running' && clock.endsAt != null && clock.endsAt <= now) {
       changed = true
-      return { ...clock, status: 'done' as const, remainingMs: 0, endsAt: null }
+      return {
+        ...noteDone(clock, clock.endsAt),
+        status: 'done' as const,
+        remainingMs: 0,
+        endsAt: null,
+      }
     }
     return clock
   })

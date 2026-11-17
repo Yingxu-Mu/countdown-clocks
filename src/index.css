@@ -631,6 +631,155 @@ input::placeholder {
   user-select: none;
 }
 
+.card-shell {
+  padding: 0;
+  gap: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.card-scene {
+  width: 100%;
+  perspective: 1200px;
+}
+
+.card-faces {
+  position: relative;
+  transition: transform 0.7s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+
+.card-faces[data-turning='true'] {
+  transform-style: preserve-3d;
+}
+
+.card-faces[data-turning='true'] .card-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-faces[data-turned='true'][data-turning='true']:not([data-settled='true']) {
+  transform: rotateY(180deg);
+}
+
+.card-faces[data-settled='true'] {
+  transition: none;
+}
+
+.card-back {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  overflow: auto;
+}
+
+.card-faces[data-turning='true'] .card-back {
+  visibility: visible;
+  transform: rotateY(180deg);
+}
+
+.card-faces[data-settled='true'] .card-front {
+  display: none;
+}
+
+.card-faces[data-settled='true'] .card-back {
+  position: relative;
+  inset: auto;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+}
+
+.card-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.turn-card {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.turn-card:hover,
+.turn-card[aria-pressed='true'] {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.turn-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.insight {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  padding: 8px 4px 4px;
+}
+
+.insight-kind {
+  width: 100%;
+}
+
+.insight-kind button {
+  flex: 1;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 8px;
+}
+
+.insight-value {
+  margin: 0;
+  font-family: var(--font-time);
+  font-size: clamp(32px, 12cqw, 44px);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--time-tracking);
+  line-height: 1;
+}
+
+.insight-caption {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.insight-note {
+  margin: 0;
+  max-width: 28ch;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.rates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
 html[data-theme='signal'] .card[data-status='running'] {
   box-shadow: inset 3px 0 0 var(--accent);
 }

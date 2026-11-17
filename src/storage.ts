@@ -1,6 +1,7 @@
 import { normalizeIcon } from './icons'
+import { reconcileStored } from './ledger'
 import { MAX_DURATION_MS, rememberDuration } from './time'
-import { isSoundId, isThemeId, type Clock, type ClockMode, type ClockStatus, type Settings, type SoundId } from './types'
+import { isSoundId, isThemeId, type Clock, type ClockKind, type ClockMode, type ClockStatus, type Settings, type SoundId } from './types'
 
 const CLOCKS_KEY = 'countdown-clocks.clocks.v1'
 const SETTINGS_KEY = 'countdown-clocks.settings.v1'
@@ -48,6 +49,14 @@ function normalizeClock(value: unknown, now: number): Clock | null {
     typeof value.endsAt === 'number' && Number.isFinite(value.endsAt) ? value.endsAt : null
   let runStartedAt: number | null =
     typeof value.runStartedAt === 'number' && Number.isFinite(value.runStartedAt) ? value.runStartedAt : null
+  const kind: ClockKind = value.kind === 'continuous' ? 'continuous' : 'accumulate'
+  const accruedMs = accruedOf(value.accruedMs)
+  let accruedFrom =
+    typeof value.accruedFrom === 'number' && Number.isFinite(value.accruedFrom) ? value.accruedFrom : null
+  let successes = countOf(value.successes)
+  let failures = countOf(value.failures)
+  let attemptOpen = value.attemptOpen === true
+  let finishedAt: number | null = null
 
   if (mode === 'up') {
     endsAt = null
@@ -71,6 +80,7 @@ function normalizeClock(value: unknown, now: number): Clock | null {
     if (endsAt == null) {
       status = remainingMs <= 0 ? 'done' : 'paused'
     } else if (endsAt <= now) {
+      finishedAt = endsAt
       status = 'done'
       remainingMs = 0
       endsAt = null
@@ -91,18 +101,38 @@ function normalizeClock(value: unknown, now: number): Clock | null {
     runStartedAt = null
   }
 
-  return {
-    id: value.id,
-    label: value.label.trim().slice(0, 40) || 'Clock',
-    icon: normalizeIcon(value.icon),
-    mode,
-    durationMs,
-    remainingMs,
-    endsAt,
-    elapsedMs,
-    runStartedAt,
-    status,
-  }
+  return reconcileStored(
+    {
+      id: value.id,
+      label: value.label.trim().slice(0, 40) || 'Clock',
+      icon: normalizeIcon(value.icon),
+      mode,
+      kind,
+      durationMs,
+      remainingMs,
+      endsAt,
+      elapsedMs,
+      runStartedAt,
+      accruedMs,
+      accruedFrom,
+      successes,
+      failures,
+      attemptOpen,
+      status,
+    },
+    now,
+    finishedAt,
+  )
+}
+
+function countOf(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return 0
+  return Math.min(value, 1_000_000)
+}
+
+function accruedOf(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0
+  return Math.min(Math.round(value), 1000 * 60 * 60 * 24 * 365 * 10)
 }
 
 export function loadClocks(): Clock[] {

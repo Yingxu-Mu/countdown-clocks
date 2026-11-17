@@ -658,6 +658,10 @@ input::placeholder {
   -webkit-backface-visibility: hidden;
 }
 
+.card-faces[data-turning='true']:not([data-turned='true']) {
+  transform: rotateY(0deg);
+}
+
 .card-faces[data-turned='true'][data-turning='true']:not([data-settled='true']) {
   transform: rotateY(180deg);
 }
@@ -674,20 +678,25 @@ input::placeholder {
   overflow: auto;
 }
 
-.card-faces[data-turning='true'] .card-back {
+.card-faces[data-turning='true'] .card-back,
+.card-faces[data-settled='true'] .card-back {
   visibility: visible;
   transform: rotateY(180deg);
 }
 
+.card-faces[data-turned='true'] .card-front {
+  pointer-events: none;
+}
+
+.card-faces[data-turned='true'] .card-back {
+  pointer-events: auto;
+}
+
 .card-faces[data-settled='true'] .card-front {
-  display: none;
+  visibility: hidden;
 }
 
 .card-faces[data-settled='true'] .card-back {
-  position: relative;
-  inset: auto;
-  visibility: visible;
-  pointer-events: auto;
   transform: none;
 }
 

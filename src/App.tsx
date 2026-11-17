@@ -183,6 +183,10 @@ export default function App() {
     if (justFinished) playSound(sound)
   }, [clocks, sound])
 
+  function heardFinish(id: string) {
+    finishedIds.current?.add(id)
+  }
+
   function addClock() {
     const time = Date.now()
     setNow(time)
@@ -244,6 +248,7 @@ export default function App() {
           return { ...noteStart(clock, time), status: 'running', runStartedAt: time }
         }
         if (clock.remainingMs <= 0) {
+          heardFinish(clock.id)
           return { ...clock, status: 'done', remainingMs: 0, endsAt: null }
         }
         return { ...noteStart(clock, time), status: 'running', endsAt: time + clock.remainingMs }
@@ -341,7 +346,10 @@ export default function App() {
           }
           return { ...noteEdit(clock, time, false), elapsedMs, runStartedAt: null, status: 'paused' }
         }
-        if (next <= 0) return { ...noteEdit(clock, time, false), remainingMs: 0, endsAt: null, status: 'done' }
+        if (next <= 0) {
+          heardFinish(id)
+          return { ...noteEdit(clock, time, false), remainingMs: 0, endsAt: null, status: 'done' }
+        }
         const fresh =
           clock.status === 'done' || (clock.status === 'paused' && clock.remainingMs === clock.durationMs)
         const durationMs = fresh ? next : Math.max(clock.durationMs, next)

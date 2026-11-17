@@ -87,15 +87,22 @@ export function ClockCard({
   }, [])
 
   function showBack() {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const faces = facesRef.current
+    if (!faces || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setTurning(false)
       setTurned(true)
       setSettled(true)
       return
     }
+    faces.style.transition = 'none'
     setSettled(false)
     setTurning(true)
-    setTurned(true)
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        faces.style.transition = ''
+        setTurned(true)
+      })
+    })
   }
 
   function showFront() {

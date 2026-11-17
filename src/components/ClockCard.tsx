@@ -92,8 +92,8 @@ export function ClockCard({
       window.setTimeout(() => {
         onFlip()
         setFlipPhase('in')
-        flipTimers.current.push(window.setTimeout(() => setFlipPhase(null), 280))
-      }, 220),
+        flipTimers.current.push(window.setTimeout(() => setFlipPhase(null), 480))
+      }, 380),
     )
   }
   const shownMs = displayClock(clock, now)

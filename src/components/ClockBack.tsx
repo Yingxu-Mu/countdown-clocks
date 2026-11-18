@@ -100,21 +100,15 @@ export function TurnButton({
   return (
     <button type="button" className="turn-card" aria-pressed={pressed} aria-label={label} onClick={onClick}>
       <svg className="turn-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="4" y="5" width="11" height="14" rx="1.8" fill="none" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="5.5" cy="7" r="1.35" fill="currentColor" />
+        <circle cx="5.5" cy="12" r="1.35" fill="currentColor" />
+        <circle cx="5.5" cy="17" r="1.35" fill="currentColor" />
         <path
-          d="M15 8.2c2.6.7 4 2.2 4 3.8s-1.4 3.1-4 3.8"
+          d="M9.5 7H19.5M9.5 12H19.5M9.5 17H19.5"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.7"
           strokeLinecap="round"
-        />
-        <path
-          d="M16.6 6.6 19.2 8.4 16.4 9.8"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
         />
       </svg>
     </button>

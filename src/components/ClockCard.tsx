@@ -62,12 +62,13 @@ export function ClockCard({
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingPart, setEditingPart] = useState<TimePart | null>(null)
   const [seenMode, setSeenMode] = useState(clock.mode)
+  const countingUp = clock.mode === 'up'
+  const [draftParts, setDraftParts] = useState(() => splitTime(clock.remainingMs, countingUp))
   if (clock.mode !== seenMode) {
     setSeenMode(clock.mode)
     setEditingPart(null)
+    setDraftParts(splitTime(displayClock(clock, now), countingUp))
   }
-  const countingUp = clock.mode === 'up'
-  const [draftParts, setDraftParts] = useState(() => splitTime(clock.remainingMs, countingUp))
   const [titleDraft, setTitleDraft] = useState(clock.label)
   const cancelTitle = useRef(false)
   const editorRef = useRef<HTMLDivElement>(null)
@@ -79,12 +80,17 @@ export function ClockCard({
   const facesRef = useRef<HTMLDivElement>(null)
   const [flipPhase, setFlipPhase] = useState<'out' | 'in' | null>(null)
   const flipTimers = useRef<number[]>([])
+  const suppressTimeEdit = useRef(false)
 
   useEffect(() => {
     return () => {
       for (const id of flipTimers.current) window.clearTimeout(id)
     }
   }, [])
+
+  useEffect(() => {
+    suppressTimeEdit.current = false
+  })
 
   function showBack() {
     const faces = facesRef.current
@@ -126,16 +132,13 @@ export function ClockCard({
 
   function flipClock() {
     if (flipPhase) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      onFlip()
-      return
-    }
+    onFlip()
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     for (const id of flipTimers.current) window.clearTimeout(id)
     flipTimers.current = []
     setFlipPhase('out')
     flipTimers.current.push(
       window.setTimeout(() => {
-        onFlip()
         setFlipPhase('in')
         flipTimers.current.push(window.setTimeout(() => setFlipPhase(null), 480))
       }, 380),
@@ -154,7 +157,8 @@ export function ClockCard({
   const fresh = countingUp ? shownMs === 0 : shownMs === clock.durationMs
   const runLabel = clock.status === 'running' ? 'Pause' : fresh ? 'Start' : 'Resume'
   const statusLabel = urgent ? 'Ending' : clock.status === 'running' ? 'Running' : clock.status === 'paused' ? 'Paused' : 'Done'
-  const shown = editingPart ? draftParts : splitTime(shownMs, countingUp)
+  const shown =
+    editingPart && clock.mode === seenMode ? draftParts : splitTime(shownMs, countingUp)
   const finished = (!countingUp && clock.status === 'done') || capped
 
   function choosePart(part: TimePart) {
@@ -163,10 +167,17 @@ export function ClockCard({
   }
 
   function changePart(next: number) {
-    if (!editingPart) return
+    if (suppressTimeEdit.current || !editingPart) return
     const parts = { ...draftParts, [editingPart]: next }
     setDraftParts(parts)
     onTimeChange(parts.hours * 3600 + parts.minutes * 60 + parts.seconds)
+  }
+
+  function resetClock() {
+    suppressTimeEdit.current = true
+    setEditingPart(null)
+    setDraftParts(countingUp ? { hours: 0, minutes: 0, seconds: 0 } : splitTime(clock.durationMs, false))
+    onReset()
   }
 
   useEffect(() => {
@@ -410,7 +421,7 @@ export function ClockCard({
             type="button"
             className="btn btn-primary span"
             aria-label={`Reset ${clock.label}`}
-            onClick={onReset}
+            onClick={resetClock}
           >
             Reset
           </button>
@@ -428,7 +439,7 @@ export function ClockCard({
               type="button"
               className="btn btn-secondary"
               aria-label={`Reset ${clock.label}`}
-              onClick={onReset}
+              onClick={resetClock}
             >
               Reset
             </button>

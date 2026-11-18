@@ -142,11 +142,13 @@ export function ClockCard({
     )
   }
   const shownMs = displayClock(clock, now)
-  const ratio = countingUp
-    ? (shownMs % 60_000) / 60_000
-    : clock.durationMs === 0
+  const ringMs = countingUp ? Math.max(clock.durationMs, 1000) : clock.durationMs
+  const ratio =
+    ringMs === 0
       ? 0
-      : Math.min(1, Math.max(0, shownMs / clock.durationMs))
+      : countingUp
+        ? (shownMs % ringMs) / ringMs
+        : Math.min(1, Math.max(0, shownMs / ringMs))
   const urgent = !countingUp && clock.status === 'running' && shownMs > 0 && shownMs <= 10_000
   const capped = countingUp && shownMs >= MAX_DURATION_MS
   const fresh = countingUp ? shownMs === 0 : shownMs === clock.durationMs

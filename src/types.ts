@@ -34,6 +34,7 @@ export type Clock = {
   runStartedAt: number | null
   accruedMs: number
   accruedFrom: number | null
+  accruedDays: Record<string, number>
   successes: number
   failures: number
   attemptOpen: boolean

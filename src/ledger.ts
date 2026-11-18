@@ -3,12 +3,13 @@ import type { Clock, ClockKind } from './types'
 
 export function freshLedger(): Pick<
   Clock,
-  'kind' | 'accruedMs' | 'accruedFrom' | 'successes' | 'failures' | 'attemptOpen'
+  'kind' | 'accruedMs' | 'accruedFrom' | 'accruedDays' | 'successes' | 'failures' | 'attemptOpen'
 > {
   return {
     kind: 'accumulate',
     accruedMs: 0,
     accruedFrom: null,
+    accruedDays: {},
     successes: 0,
     failures: 0,
     attemptOpen: false,
@@ -35,11 +36,91 @@ function bank(clock: Clock, now: number): Clock {
     return { ...clock, accruedFrom: null }
   }
   const end = segmentEnd(clock, now)
+  const start = clock.accruedFrom
   return {
     ...clock,
-    accruedMs: Math.max(0, clock.accruedMs) + Math.max(0, end - clock.accruedFrom),
+    accruedMs: Math.max(0, clock.accruedMs) + Math.max(0, end - start),
+    accruedDays: addInterval(clock.accruedDays ?? {}, start, end),
     accruedFrom: null,
   }
+}
+
+const DAY_MS_CAP = 36 * 60 * 60 * 1000
+
+function dayKey(ms: number): string {
+  const date = new Date(ms)
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+function dateFromKey(key: string): Date {
+  const [year, month, day] = key.split('-').map(Number)
+  return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1)
+}
+
+function nextMidnight(ms: number): number {
+  const date = new Date(ms)
+  date.setHours(24, 0, 0, 0)
+  const boundary = date.getTime()
+  return boundary > ms ? boundary : ms + 60 * 60 * 1000
+}
+
+function addInterval(
+  days: Record<string, number>,
+  start: number,
+  end: number,
+): Record<string, number> {
+  if (!(end > start) || !Number.isFinite(start) || !Number.isFinite(end)) return days
+  const next = { ...days }
+  let cursor = start
+  for (let guard = 0; cursor < end && guard < 8; guard += 1) {
+    const boundary = nextMidnight(cursor)
+    const sliceEnd = Math.min(end, boundary)
+    const amount = sliceEnd - cursor
+    if (amount > 0) {
+      const key = dayKey(cursor)
+      next[key] = Math.min(DAY_MS_CAP, (next[key] ?? 0) + amount)
+    }
+    if (sliceEnd <= cursor) break
+    cursor = sliceEnd
+  }
+  return next
+}
+
+function liveDays(clock: Clock, now: number): Record<string, number> {
+  const stored = clock.accruedDays ?? {}
+  if (clock.status !== 'running' || clock.accruedFrom == null) return stored
+  return addInterval(stored, clock.accruedFrom, segmentEnd(clock, now))
+}
+
+export function todayAccrued(clock: Clock, now: number): number {
+  return liveDays(clock, now)[dayKey(now)] ?? 0
+}
+
+export function priorDay(clock: Clock, now: number): { label: string; ms: number } {
+  const days = liveDays(clock, now)
+  const today = dayKey(now)
+  const yesterdayDate = new Date(now)
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const yesterday = dayKey(yesterdayDate.getTime())
+  const yesterdayMs = days[yesterday] ?? 0
+  if (yesterdayMs > 0) return { label: 'Yesterday', ms: yesterdayMs }
+
+  const earlier = Object.keys(days)
+    .filter((key) => key < today && (days[key] ?? 0) > 0)
+    .sort()
+  const last = earlier[earlier.length - 1]
+  if (!last) return { label: 'Yesterday', ms: 0 }
+
+  const date = dateFromKey(last)
+  const todayDate = dateFromKey(today)
+  const diff = Math.round((todayDate.getTime() - date.getTime()) / 86_400_000)
+  const when =
+    diff > 1 && diff < 7
+      ? date.toLocaleDateString(undefined, { weekday: 'long' })
+      : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return { label: `Last ${when}`, ms: days[last] ?? 0 }
 }
 
 function fail(clock: Clock): Clock {

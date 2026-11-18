@@ -774,6 +774,27 @@ input::placeholder {
   text-transform: uppercase;
 }
 
+.kept-days {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+}
+
+.kept-prior .insight-prior-value {
+  margin: 0;
+  font-family: var(--font-time);
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--time-tracking);
+  line-height: 1;
+}
+
+.kept-prior .insight-caption {
+  margin-top: 4px;
+}
+
 .insight-note {
   margin: 0;
   max-width: 28ch;

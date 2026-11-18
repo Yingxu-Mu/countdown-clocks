@@ -1,4 +1,4 @@
-import { displayAccrued } from '../ledger'
+import { displayAccrued, priorDay, todayAccrued } from '../ledger'
 import { formatKept } from '../time'
 import type { Clock, ClockKind } from '../types'
 import { ClockIcon } from './ClockIcon'
@@ -18,6 +18,8 @@ export function ClockBack({ clock, now, onKind, onTurn, onDelete }: ClockBackPro
   const failures = clock.failures
   const attempts = successes + failures
   const kept = displayAccrued(clock, now)
+  const today = todayAccrued(clock, now)
+  const prior = priorDay(clock, now)
 
   return (
     <div className="card card-face card-back">
@@ -78,8 +80,20 @@ export function ClockBack({ clock, now, onKind, onTurn, onDelete }: ClockBackPro
           </>
         ) : (
           <>
-            <p className="insight-value">{formatKept(kept)}</p>
-            <p className="insight-caption">Total time</p>
+            <div className="kept">
+              <p className="insight-value">{formatKept(kept)}</p>
+              <p className="insight-caption">Total time</p>
+            </div>
+            <div className="kept-days">
+              <div className="kept kept-prior">
+                <p className="insight-prior-value">{formatKept(today)}</p>
+                <p className="insight-caption">Today</p>
+              </div>
+              <div className="kept kept-prior">
+                <p className="insight-prior-value">{formatKept(prior.ms)}</p>
+                <p className="insight-caption">{prior.label}</p>
+              </div>
+            </div>
             <p className="insight-note">Every minute the clock is running, in either direction.</p>
           </>
         )}

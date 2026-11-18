@@ -115,6 +115,7 @@ function normalizeClock(value: unknown, now: number): Clock | null {
       runStartedAt,
       accruedMs,
       accruedFrom,
+      accruedDays: normalizeDays(value.accruedDays),
       successes,
       failures,
       attemptOpen,
@@ -128,6 +129,20 @@ function normalizeClock(value: unknown, now: number): Clock | null {
 function countOf(value: unknown): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return 0
   return Math.min(value, 1_000_000)
+}
+
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
+const DAY_MS_CAP = 36 * 60 * 60 * 1000
+
+function normalizeDays(value: unknown): Record<string, number> {
+  if (!isRecord(value)) return {}
+  const days: Record<string, number> = {}
+  for (const [key, ms] of Object.entries(value)) {
+    if (!DAY_KEY.test(key)) continue
+    if (typeof ms !== 'number' || !Number.isFinite(ms) || ms <= 0) continue
+    days[key] = Math.min(DAY_MS_CAP, Math.round(ms))
+  }
+  return days
 }
 
 function accruedOf(value: unknown): number {

@@ -1,3 +1,14 @@
+// The back of a project card.
+//
+// Accumulate is the default view: total running time (both directions), plus
+// today and the previous day that actually has time. Unbroken is the other
+// view: the rate of countdowns that reached zero without a pause, reset, edit,
+// or flip. The radio only switches the view. Both ledgers are recorded from
+// the moment the clock is created, whichever button is selected.
+//
+// An open attempt is shown as a provisional success so the rate moves as soon
+// as a clean run starts, and falls back if that run is interrupted.
+
 import { displayAccrued, priorDay, todayAccrued } from '../ledger'
 import { formatKept } from '../time'
 import type { Clock, ClockKind } from '../types'
@@ -13,6 +24,8 @@ type ClockBackProps = {
 
 export function ClockBack({ clock, now, onKind, onTurn, onDelete }: ClockBackProps) {
   const unbroken = clock.kind === 'continuous'
+  // Count the in-progress clean run as a success for the percentage only.
+  // The stored `successes` value is not incremented until the countdown ends.
   const live = clock.attemptOpen ? 1 : 0
   const successes = clock.successes + live
   const failures = clock.failures
@@ -102,6 +115,9 @@ export function ClockBack({ clock, now, onKind, onTurn, onDelete }: ClockBackPro
   )
 }
 
+// Same control on both faces. The mark is an itemized list (three bullets and
+// three lines), distinct from the circular-arrow button that flips countdown
+// and stopwatch.
 export function TurnButton({
   label,
   pressed = false,

@@ -1,3 +1,7 @@
+// Full emoji picker behind the "more" control. The quick row lives in
+// IconChooser; this list is the rest of Unicode, filtered by name and a few
+// search aliases. Skin tone is local to the picker.
+
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadEmojiCatalog, type CatalogGroup } from '../emojiCatalog'
 import { isImageIcon, isQuickEmoji } from '../icons'

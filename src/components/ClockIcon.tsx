@@ -1,3 +1,6 @@
+// Renders either an emoji or an uploaded image. The image is decorative; the
+// button that opens the chooser carries the accessible name.
+
 import { isImageIcon } from '../icons'
 
 type ClockIconProps = {

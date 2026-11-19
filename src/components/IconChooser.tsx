@@ -1,3 +1,6 @@
+// Quick emoji row, the full picker, and an image upload. `showPreview` is
+// false when the chooser is already sitting under the clock's own icon.
+
 import { useState } from 'react'
 import { EMOJI_OPTIONS, prepareIconFile } from '../icons'
 import { ClockIcon } from './ClockIcon'

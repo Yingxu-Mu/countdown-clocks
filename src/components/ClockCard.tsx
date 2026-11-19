@@ -1,3 +1,19 @@
+// One project card.
+//
+// The front is the dial: countdown or stopwatch, chosen by the button in the
+// middle of the ring. That flip is animated here and applied immediately in
+// `onFlip`, so the digits leave the previous face's time at once instead of
+// holding it for the length of the animation.
+//
+// The back (kept time) is a separate 3D turn. Turning the card does not pause
+// the clock and does not count as a mode flip. `turned` is local UI state and
+// is not saved.
+//
+// The ring and the digits share one number from `displayClock`. On the
+// stopwatch the ring's lap is the countdown's `durationMs` and wraps; the
+// digits show the total elapsed, so after Reset they read 00:00:00 while the
+// ring starts empty.
+
 import {
   useEffect,
   useRef,
@@ -13,6 +29,8 @@ import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
 
+// The SVG ring is 120px. The CSS face is 148px, and the number wheel is the
+// same 148px, so opening the wheel does not change the card height.
 const SIZE = 120
 const STROKE = 8
 const RADIUS = (SIZE - STROKE) / 2
@@ -61,6 +79,9 @@ export function ClockCard({
   const [editingIcon, setEditingIcon] = useState(false)
   const [editingTitle, setEditingTitle] = useState(false)
   const [editingPart, setEditingPart] = useState<TimePart | null>(null)
+  // `seenMode` lets us notice a countdown/stopwatch swap during render and
+  // drop the open wheel before paint. Otherwise one frame would keep showing
+  // the previous face's hours, minutes, and seconds.
   const [seenMode, setSeenMode] = useState(clock.mode)
   const countingUp = clock.mode === 'up'
   const [draftParts, setDraftParts] = useState(() => splitTime(clock.remainingMs, countingUp))
@@ -74,12 +95,19 @@ export function ClockCard({
   const editorRef = useRef<HTMLDivElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
+  // Card-turn state. `settled` means the animation finished and the hidden face
+  // can ignore pointer events. The front stays in normal flow (visibility
+  // hidden when settled) so the card keeps the face height; the back is
+  // position:absolute and must not be switched to in-flow.
   const [turned, setTurned] = useState(false)
   const [settled, setSettled] = useState(false)
   const [turning, setTurning] = useState(false)
   const facesRef = useRef<HTMLDivElement>(null)
   const [flipPhase, setFlipPhase] = useState<'out' | 'in' | null>(null)
   const flipTimers = useRef<number[]>([])
+  // Set for the commit that follows Reset. A wheel unmount can still emit a
+  // scroll-driven onChange in that commit; ignoring it stops the old draft
+  // (often the countdown's time) from being written back over the reset.
   const suppressTimeEdit = useRef(false)
 
   useEffect(() => {
@@ -88,10 +116,16 @@ export function ClockCard({
     }
   }, [])
 
+  // Cleared after paint, so it covers the reset commit's layout effects and
+  // nothing later. A new wheel opened afterwards edits normally.
   useEffect(() => {
     suppressTimeEdit.current = false
   })
 
+  // Disable the transition, snap to the start of the turn, then turn it back
+  // on and set the destination on the next frame. Without the double
+  // requestAnimationFrame the browser paints the destination immediately and
+  // the turn has no animation. Reduced motion skips straight to the back.
   function showBack() {
     const faces = facesRef.current
     if (!faces || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -130,6 +164,10 @@ export function ClockCard({
     })
   }
 
+  // Apply the mode change before the ring animation. Waiting until the "out"
+  // animation finished left the countdown digits on screen while the user
+  // already thought they were looking at the stopwatch, and a Reset in that
+  // window reset the countdown instead of zeroing the stopwatch.
   function flipClock() {
     if (flipPhase) return
     onFlip()
@@ -145,6 +183,9 @@ export function ClockCard({
     )
   }
   const shownMs = displayClock(clock, now)
+  // One stopwatch lap is the countdown length captured on this clock (at least
+  // one second so the ratio cannot divide by zero). The countdown ring is that
+  // same length, drawn as remaining / duration.
   const ringMs = countingUp ? Math.max(clock.durationMs, 1000) : clock.durationMs
   const ratio =
     ringMs === 0
@@ -154,13 +195,21 @@ export function ClockCard({
         : Math.min(1, Math.max(0, shownMs / ringMs))
   const urgent = !countingUp && clock.status === 'running' && shownMs > 0 && shownMs <= 10_000
   const capped = countingUp && shownMs >= MAX_DURATION_MS
+  // Start vs Resume. A stopwatch at 0 is fresh. A countdown is fresh only when
+  // it is still showing its full length.
   const fresh = countingUp ? shownMs === 0 : shownMs === clock.durationMs
   const runLabel = clock.status === 'running' ? 'Pause' : fresh ? 'Start' : 'Resume'
   const statusLabel = urgent ? 'Ending' : clock.status === 'running' ? 'Running' : clock.status === 'paused' ? 'Paused' : 'Done'
+  // While a wheel is open, the digits show the draft so they track the wheel
+  // before the parent state comes back. After a mode change in this same
+  // render, `seenMode` is still the old mode until the restart, so the draft
+  // is ignored and the new face's live time is shown instead.
   const shown =
     editingPart && clock.mode === seenMode ? draftParts : splitTime(shownMs, countingUp)
   const finished = (!countingUp && clock.status === 'done') || capped
 
+  // Opening a part snapshots the live time into the draft first. Clicking the
+  // part that is already open closes the wheel.
   function choosePart(part: TimePart) {
     if (editingPart === null) setDraftParts(splitTime(shownMs, countingUp))
     setEditingPart((current) => (current === part ? null : part))
@@ -173,6 +222,9 @@ export function ClockCard({
     onTimeChange(parts.hours * 3600 + parts.minutes * 60 + parts.seconds)
   }
 
+  // Close the wheel and zero its draft before the parent reset lands, so the
+  // label cannot keep showing the previous digits. On the stopwatch that draft
+  // is 0. On the countdown it is the set length, which is what reset restores.
   function resetClock() {
     suppressTimeEdit.current = true
     setEditingPart(null)
@@ -509,6 +561,8 @@ function FlipIcon() {
   )
 }
 
+// Count-up floors, matching `formatClock`, so the button text and the
+// accessible name do not disagree by a second. Countdown ceils.
 function splitTime(ms: number, countingUp: boolean) {
   const safe = typeof ms === 'number' && Number.isFinite(ms) ? Math.max(0, ms) : 0
   const totalSeconds = countingUp ? Math.floor(safe / 1000) : Math.ceil(safe / 1000)

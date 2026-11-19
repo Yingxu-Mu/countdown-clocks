@@ -1,3 +1,6 @@
+// Theme radios. Arrow keys move both the selection and the roving tabindex,
+// matching the radiogroup pattern used by the sound switch.
+
 import { useRef, type KeyboardEvent } from 'react'
 import { THEMES, type ThemeId } from '../types'
 

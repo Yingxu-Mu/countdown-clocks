@@ -1,3 +1,6 @@
+// The plus at the end of the clock list. Clicking it creates a real paused
+// clock immediately; there is no separate draft form.
+
 type DraftClockProps = {
   onAdd: () => void
 }

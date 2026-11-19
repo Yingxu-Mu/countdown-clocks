@@ -1,3 +1,8 @@
+// Finish tones are synthesized here and played as short WAV blobs. There are
+// no recorded audio files. Browsers block `play()` until a user gesture, so
+// Start calls `unlockSound` (a silent play of the selected clip) and the first
+// pointer or key on the page calls `primeAudio`.
+
 import type { SoundId } from './types'
 
 const SAMPLE_RATE = 22_050
@@ -6,6 +11,9 @@ type Wave = 'sine' | 'square'
 
 let output: HTMLAudioElement | null = null
 let primer: HTMLAudioElement | null = null
+// True while a real finish tone is playing or about to. The silent unlock
+// that resolves afterwards must not turn the volume back up over it, and must
+// not pause it.
 let live = false
 let selected: SoundId = 'bell'
 
@@ -15,6 +23,8 @@ const clips: Record<Exclude<SoundId, 'off'>, string> = {
   chime: wavUrl(renderChime()),
 }
 
+// A fiftieth of a second of silence. Used only to satisfy the autoplay policy
+// on the first gesture, before any finish tone is due.
 const silent = wavUrl(new Float32Array(SAMPLE_RATE / 50))
 
 function player(): HTMLAudioElement {
@@ -25,6 +35,8 @@ function player(): HTMLAudioElement {
   return output
 }
 
+// Remember the choice. The actual clip is swapped in on the next unlock or play
+// so changing the setting does not start audio by itself.
 export function prepareSound(id: SoundId) {
   selected = id
 }
@@ -42,6 +54,8 @@ export function primeAudio() {
     })
 }
 
+// Play at volume 0 inside the Start gesture, then pause and rewind. If a real
+// finish begins before that promise resolves, leave it alone.
 export function unlockSound() {
   if (selected === 'off' || live) return
   const audio = player()
@@ -67,6 +81,8 @@ export function unlockSound() {
     })
 }
 
+// The natural countdown finish. `off` is a no-op. Seeking can throw if the
+// clip has not loaded; `play()` still starts at the beginning in that case.
 export function playSound(id: SoundId) {
   if (id === 'off') return
   const audio = player()
@@ -112,6 +128,8 @@ function buffer(seconds: number): Float32Array {
   return new Float32Array(Math.ceil(seconds * SAMPLE_RATE))
 }
 
+// A short attack and a linear decay to zero, mixed into `samples`. Square
+// waves are used for the alarm; everything else is a sine.
 function addWave(
   samples: Float32Array,
   frequency: number,
@@ -133,6 +151,8 @@ function addWave(
   }
 }
 
+// 16-bit mono PCM in a RIFF wrapper, handed to an <audio> element as a blob URL.
+// The header fields are little-endian, which is what WAV requires.
 function wavUrl(samples: Float32Array): string {
   const dataBytes = samples.length * 2
   const bytes = new Uint8Array(44 + dataBytes)

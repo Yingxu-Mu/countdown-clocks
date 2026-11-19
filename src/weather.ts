@@ -1,3 +1,7 @@
+// Local hourly forecast helper. Not mounted by the clock list; kept for a
+// possible later surface. WMO weather codes are mapped to short labels, and
+// the next few hours are taken from Open-Meteo in the browser's language unit.
+
 export type WeatherHour = {
   time: number
   temperature: number

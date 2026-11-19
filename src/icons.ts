@@ -1,3 +1,8 @@
+// Clock icons. The quick row is a fixed set of emoji aimed at focused work.
+// Anything else has to be one grapheme that looks like an emoji, or an image
+// (a data URL from an upload, or an http(s) URL). Everything else falls back
+// to the timer.
+
 export const DEFAULT_CLOCK_ICON = '⏱️'
 
 export const EMOJI_OPTIONS = [
@@ -21,6 +26,8 @@ export const EMOJI_OPTIONS = [
 ] as const
 
 const MAX_ICON_CHARS = 250_000
+// One emoji, including a flag (two regional indicators count as one grapheme)
+// or a keycap. Longer strings are treated as not-an-emoji.
 const MAX_EMOJI_CHARS = 32
 
 const QUICK_EMOJIS = new Set<string>(EMOJI_OPTIONS.map((option) => option.emoji))
@@ -54,6 +61,9 @@ export function normalizeIcon(value: unknown): string {
   return DEFAULT_CLOCK_ICON
 }
 
+// Square-crop the upload to 96px JPEG so a large photo does not land in
+// localStorage at full size. If the canvas is unavailable, the original data
+// URL is kept and `normalizeIcon` still has to accept it under MAX_ICON_CHARS.
 export function prepareIconFile(file: File): Promise<string> {
   if (!file.type.startsWith('image/')) return Promise.reject(new Error('Choose an image file.'))
   if (file.size > 8 * 1024 * 1024) return Promise.reject(new Error('Choose an image under 8 MB.'))

@@ -1,3 +1,7 @@
+/* Themes set the custom properties below on <html data-theme>. Layout does not
+   change between Paper, Signal, and Tide — only color, type, radius, shadow,
+   and the page background. */
+
 :root {
   color-scheme: light;
   font-synthesis: none;
@@ -639,6 +643,12 @@ input::placeholder {
   box-shadow: none;
 }
 
+/* The kept-time turn. The front stays in normal flow and is only visibility:
+   hidden once the turn has settled, so the card height remains the face height.
+   The back is position:absolute and fills that box. Do not switch the front to
+   display:none or the back to position:relative; the card will jump. 3D is
+   enabled only while turning so a settled card does not flatten its children. */
+
 .card-scene {
   width: 100%;
   perspective: 1200px;
@@ -967,6 +977,11 @@ html[data-theme='tide'] .card[data-status='running'] {
   background: transparent;
   user-select: text;
 }
+
+/* Countdown / stopwatch flip. Only the ring (.face) animates. The digits update
+   immediately, in ClockCard, when the mode changes — they are not part of this
+   animation. Pointer events are off for the whole body while it plays so a
+   second click cannot start another flip. */
 
 .clock-stage {
   perspective: 900px;

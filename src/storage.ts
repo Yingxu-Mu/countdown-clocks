@@ -1,3 +1,8 @@
+// Persistence for clocks and settings. Reads are defensive: a hand-edited or
+// half-written localStorage value is dropped or clamped instead of crashing
+// the page. Writes swallow quota and private-mode errors so the session keeps
+// running even when the browser refuses to store it.
+
 import { normalizeIcon } from './icons'
 import { reconcileStored } from './ledger'
 import { MAX_DURATION_MS, rememberDuration } from './time'
@@ -8,12 +13,15 @@ const SETTINGS_KEY = 'countdown-clocks.settings.v1'
 
 const DEFAULT_SETTINGS: Settings = { theme: 'paper', sound: 'bell', recentSeconds: [] }
 
+// Older builds stored the finish sound as a boolean. `false` meant silent.
 function normalizeSound(value: unknown): SoundId {
   if (value === false) return 'off'
   if (isSoundId(value)) return value
   return DEFAULT_SETTINGS.sound
 }
 
+// Rebuild the recent-duration list from oldest to newest so `rememberDuration`
+// ends up with the newest value at the front, matching how it was saved.
 function normalizeRecent(value: unknown): number[] {
   if (!Array.isArray(value)) return []
   let recent: number[] = []
@@ -29,6 +37,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
+// Turn one stored object into a Clock, or null when it is too broken to keep.
+// Running clocks are rewound to `now`: a countdown whose deadline has passed
+// is handed to the ledger as a real finish (`finishedAt`), and a stopwatch
+// that passed 99:59:59 while the tab was closed is paused at the cap.
 function normalizeClock(value: unknown, now: number): Clock | null {
   if (!isRecord(value)) return null
   if (typeof value.id !== 'string' || value.id.length === 0 || value.id.length > 80) return null
@@ -38,6 +50,8 @@ function normalizeClock(value: unknown, now: number): Clock | null {
   if (value.status !== 'running' && value.status !== 'paused' && value.status !== 'done') return null
 
   const mode: ClockMode = value.mode === 'up' ? 'up' : 'down'
+  // At least one second. A zero duration would make the ring ratio divide by
+  // zero and could not be started in a meaningful way.
   const durationMs = Math.min(MAX_DURATION_MS, Math.max(1000, Math.round(value.durationMs)))
   let remainingMs = Math.min(durationMs, Math.max(0, Math.round(value.remainingMs)))
   let elapsedMs =
@@ -59,6 +73,8 @@ function normalizeClock(value: unknown, now: number): Clock | null {
   let finishedAt: number | null = null
 
   if (mode === 'up') {
+    // The stopwatch does not use a deadline. A running one with no start
+    // stamp cannot be reconstructed, so it comes back paused.
     endsAt = null
     if (status === 'running') {
       if (runStartedAt == null) {
@@ -80,11 +96,15 @@ function normalizeClock(value: unknown, now: number): Clock | null {
     if (endsAt == null) {
       status = remainingMs <= 0 ? 'done' : 'paused'
     } else if (endsAt <= now) {
+      // Deadline passed while the tab was closed. `finishedAt` lets the
+      // ledger count the success against the original end, not against now.
       finishedAt = endsAt
       status = 'done'
       remainingMs = 0
       endsAt = null
     } else {
+      // Rewrite the snapshot so a later pause/display does not keep the stale
+      // remaining from before the tab was closed.
       remainingMs = Math.min(durationMs, endsAt - now)
     }
   } else if (status === 'paused') {
@@ -134,6 +154,8 @@ function countOf(value: unknown): number {
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/
 const DAY_MS_CAP = 36 * 60 * 60 * 1000
 
+// Keep only real local-day keys with a positive finite amount. Anything else
+// (missing map, bad key, negative time) becomes an empty day ledger.
 function normalizeDays(value: unknown): Record<string, number> {
   if (!isRecord(value)) return {}
   const days: Record<string, number> = {}
@@ -145,6 +167,7 @@ function normalizeDays(value: unknown): Record<string, number> {
   return days
 }
 
+// Ten years is past any honest total and short of a corrupted timestamp.
 function accruedOf(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 0
   return Math.min(Math.round(value), 1000 * 60 * 60 * 24 * 365 * 10)
@@ -198,6 +221,8 @@ export function saveSettings(settings: Settings) {
   }
 }
 
+// The `storage` event fires in other tabs of this origin, not in the tab that
+// wrote the value. Same-document edits are applied directly by React state.
 export function subscribeStorage(onClocks: () => void, onSettings: () => void) {
   const onStorage = (event: StorageEvent) => {
     if (event.key === CLOCKS_KEY) onClocks()

@@ -1,3 +1,7 @@
+// Named flip animations. `out` is the first half and `inn` is the second, both
+// in milliseconds. The card plays the Plain durations (380ms out, 480ms in).
+// MotionSwitch can offer the other three; it is not mounted on the page.
+
 export const FLIP_MOTIONS = [
   { id: 'plain', label: 'Plain', note: 'A sideways turn that leans in and settles', out: 380, inn: 480 },
   { id: 'lift', label: 'Lift', note: 'Rises off the card, fades at the edge, then settles', out: 300, inn: 400 },

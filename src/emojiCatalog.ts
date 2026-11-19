@@ -1,3 +1,6 @@
+// The full Unicode set, loaded once from @emoji-mart/data the first time the
+// picker opens. A failed import clears the cache so the next open can retry.
+
 import type { EmojiMartData } from '@emoji-mart/data'
 
 export type CatalogEmoji = {

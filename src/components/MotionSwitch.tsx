@@ -1,3 +1,7 @@
+// Keyboard-roving radio for the flip-motion choices. Arrow keys move the
+// selection and the focus together, which is what a radiogroup expects when
+// only the checked button is in the tab order.
+
 import { useRef, type KeyboardEvent } from 'react'
 import { FLIP_MOTIONS, type FlipMotion } from '../flipMotion'
 

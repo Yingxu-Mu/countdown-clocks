@@ -1,3 +1,15 @@
+// The clock list, the 100ms tick, and every mutation of a clock.
+//
+// Two time bases live on each clock and are updated independently:
+//   countdown — `remainingMs` while paused, `endsAt` while running
+//   stopwatch — `elapsedMs` while paused, `elapsedMs + (now - runStartedAt)` while running
+// Flipping pauses the face that was showing and does not copy one base into the
+// other. Resetting the stopwatch sets `elapsedMs` to 0. Resetting the countdown
+// restores `durationMs` and leaves the stopwatch alone.
+//
+// New clocks are appended, start paused, and begin at five minutes. Editing the
+// dial never starts a clock by itself.
+
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createId, nextLabel, settleClocks, summarize } from './clocks'
 import { ClockCard } from './components/ClockCard'
@@ -12,12 +24,15 @@ import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } 
 import { MAX_DURATION_MS, finiteMs, rememberDuration } from './time'
 import type { Clock, ClockKind, SoundId, ThemeId } from './types'
 
+// Painted into `<meta name="theme-color">` so the browser chrome matches the theme.
 const THEME_COLOR: Record<ThemeId, string> = {
   paper: '#f3efe6',
   signal: '#101114',
   tide: '#e4f1ee',
 }
 
+// The card being dragged, positioned `fixed` so the grid cell it left behind
+// can keep its height and the other cards do not jump.
 type DragBox = {
   id: string
   left: number
@@ -26,6 +41,9 @@ type DragBox = {
   height: number
 }
 
+// One in-progress drag. Pointer listeners live on `window` (capture) because
+// the card itself moves out from under the cursor. `slots` is frozen on the
+// first real movement so layout shifts do not retarget the drop.
 type Reorder = {
   id: string
   pointerId: number
@@ -44,8 +62,11 @@ type Reorder = {
   stop: (() => void) | null
 }
 
+// What the plus button creates. The user can change it on the dial afterwards.
 const DEFAULT_DURATION_MS = 5 * 60 * 1000
 
+// Read the grid as it is laid out right now. The plus cell is index -1 so a
+// drop on it means "move to the end, just before the plus".
 function gridSlots(): FrozenSlot[] {
   const slots: FrozenSlot[] = []
   let index = 0
@@ -66,6 +87,8 @@ function gridSlots(): FrozenSlot[] {
   return slots
 }
 
+// Prefer the stored recent list. A first visit with clocks but no settings
+// (an older build) seeds it from the clocks that are already there.
 function initialRecentSeconds(): number[] {
   const stored = loadSettings().recentSeconds
   if (stored.length > 0) return stored
@@ -82,8 +105,17 @@ export default function App() {
   const [theme, setTheme] = useState<ThemeId>(() => loadSettings().theme)
   const [sound, setSound] = useState<SoundId>(() => loadSettings().sound)
   const [recentSeconds, setRecentSeconds] = useState<number[]>(initialRecentSeconds)
+  // Ids that have already chimed, or that were set to zero by hand. Seeded on
+  // the first render with clocks that were already done, so a reload does not
+  // replay the finish sound. Null until that first pass so the initializer can
+  // read `clocks` without assigning a ref during render (the linter forbids it).
   const finishedIds = useRef<Set<string> | null>(null)
+  // Previous clock list, compared after each commit to repair a success that
+  // the interval closure forgot to count.
   const clockSnapshot = useRef(clocks)
+  // The interval effect is created once. Pointing this ref at the latest
+  // `settleClocks` lets a hot reload of the ledger apply on the next tick
+  // without restarting the interval.
   const settleRef = useRef(settleClocks)
   const reorder = useRef<Reorder | null>(null)
   const [drag, setDrag] = useState<DragBox | null>(null)
@@ -97,6 +129,7 @@ export default function App() {
     [],
   )
 
+  // First render only. Later done-clocks are added by the sound effect below.
   if (finishedIds.current === null) {
     finishedIds.current = new Set(
       clocks.filter((clock) => clock.status === 'done').map((clock) => clock.id),
@@ -114,10 +147,16 @@ export default function App() {
     saveClocks(clocks)
   }, [clocks])
 
+  // Every commit, not just when `settleClocks`'s identity changes. The import
+  // is a live binding, but the interval below closed over the first function.
   useEffect(() => {
     settleRef.current = settleClocks
   })
 
+  // Runs before paint. If a countdown went running → done without either
+  // counter moving, add the missing success. Skip ids already in `finishedIds`:
+  // a manual scroll to zero is pre-seeded there so it is not repaired into a
+  // success and does not chime.
   useLayoutEffect(() => {
     const previous = clockSnapshot.current
     clockSnapshot.current = clocks
@@ -134,6 +173,10 @@ export default function App() {
     if (changed) setClocks(next)
   }, [clocks])
 
+  // 100ms is enough for the digits (they show whole seconds) and short enough
+  // that a deadline crossed in the background is settled on the next visible
+  // frame. `visibilitychange` settles immediately when the tab comes back,
+  // instead of waiting for the next interval.
   useEffect(() => {
     const sync = () => {
       const time = Date.now()
@@ -184,6 +227,11 @@ export default function App() {
     }
   }, [])
 
+  // Play the finish tone only when a clock newly becomes `done`. A stopwatch
+  // whose countdown remaining is already 0 is excluded from the "clear the id"
+  // branch so flipping back and forth cannot re-arm the chime. Manual zero
+  // calls `heardFinish` before the done state is committed, so this effect
+  // finds the id already seen and stays quiet.
   useEffect(() => {
     const seen = finishedIds.current
     if (!seen) return
@@ -205,10 +253,13 @@ export default function App() {
     if (justFinished) playSound(sound)
   }, [clocks, sound])
 
+  // Mark a finish as already heard before React commits it. Used for a dial
+  // edit that lands on zero, which is not a natural time-up.
   function heardFinish(id: string) {
     finishedIds.current?.add(id)
   }
 
+  // Append a paused five-minute countdown. The plus stays the last grid cell.
   function addClock() {
     const time = Date.now()
     setNow(time)
@@ -231,6 +282,8 @@ export default function App() {
     setRecentSeconds((current) => rememberDuration(current, DEFAULT_DURATION_MS))
   }
 
+  // Freeze the live value into the stored snapshot and clear the running stamp
+  // (`runStartedAt` or `endsAt`) so the next resume starts a new segment.
   function pauseClock(id: string) {
     const time = Date.now()
     setNow(time)
@@ -258,6 +311,11 @@ export default function App() {
     )
   }
 
+  // Start or resume. The stopwatch keeps its banked `elapsedMs` and only sets
+  // a new `runStartedAt`, so a reset-then-start begins at 0 and a resume
+  // continues. A countdown with nothing left is marked done here without
+  // `noteDone`, so it does not count as an Unbroken success. `unlockSound`
+  // runs inside the user gesture so a later finish is allowed to play.
   function resumeClock(id: string) {
     unlockSound()
     const time = Date.now()
@@ -278,6 +336,11 @@ export default function App() {
     )
   }
 
+  // Reset only the face that is showing.
+  // Stopwatch: elapsed returns to 0. If it was running, it keeps running from
+  // 0; otherwise it stays paused at 0 until Start.
+  // Countdown: remaining returns to the set length. The stopwatch's elapsed
+  // time is left as it was.
   function resetClock(id: string) {
     unlockSound()
     const time = Date.now()
@@ -305,6 +368,11 @@ export default function App() {
     )
   }
 
+  // Swap countdown and stopwatch. Always pauses. The running face's live time
+  // is written back into its snapshot first (`elapsedMs` or `remainingMs`) so
+  // nothing is lost, and the other face is not modified. Coming back to a
+  // countdown that had already reached zero shows Done rather than 00:00:00
+  // with a Start button.
   function flipClock(id: string) {
     const time = Date.now()
     setNow(time)
@@ -351,6 +419,14 @@ export default function App() {
     setClocks((current) => current.map((clock) => (clock.id === id ? { ...clock, icon } : clock)))
   }
 
+  // A wheel or typed edit. Does not start a paused clock.
+  // Stopwatch: the typed total replaces `elapsedMs`. At the cap, it pauses.
+  // Countdown: a fresh or finished clock adopts the typed length as its new
+  // duration. A clock already underway keeps the longer of the old duration
+  // and the new remaining, so shortening the time left does not shrink the
+  // lap the stopwatch ring is measured against. Typing 0 is a manual finish:
+  // it is pre-seeded in `finishedIds` so it neither chimes nor counts as a
+  // success.
   function updateTime(id: string, totalSeconds: number) {
     const time = Date.now()
     setNow(time)
@@ -401,6 +477,9 @@ export default function App() {
     setDrag(null)
   }
 
+  // Ignore the first few pixels so a click on the grip does not reorder.
+  // Once the drag is real, retarget the clock whenever the pointer's card
+  // center enters a different frozen slot. The plus slot (-1) appends.
   function applyReorder(id: string, clientX: number, clientY: number) {
     const current = reorder.current
     if (!current || current.id !== id) return
@@ -439,6 +518,7 @@ export default function App() {
     })
   }
 
+  // Coalesce pointermove to one layout read per frame. The latest point wins.
   function queueReorder(id: string, pointerId: number, clientX: number, clientY: number) {
     const current = reorder.current
     if (!current || current.id !== id || current.pointerId !== pointerId) return

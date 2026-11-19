@@ -1,6 +1,10 @@
 import { MAX_DURATION_MS, finiteMs } from './time'
 import type { Clock, ClockKind } from './types'
 
+// Both ledgers start empty. `kind` is only the view on the back of the card:
+// Accumulate shows the time totals, Unbroken shows the success rate. Recording
+// does not wait for the user to pick a view.
+
 export function freshLedger(): Pick<
   Clock,
   'kind' | 'accruedMs' | 'accruedFrom' | 'accruedDays' | 'successes' | 'failures' | 'attemptOpen'
@@ -16,6 +20,9 @@ export function freshLedger(): Pick<
   }
 }
 
+// Where the open running segment should stop being counted.
+// A countdown cannot accrue past its deadline. A stopwatch cannot accrue past
+// the 99:59:59 cap. Anything else counts up to `now`.
 function segmentEnd(clock: Clock, now: number): number {
   if (clock.mode !== 'up' && clock.endsAt != null) return Math.min(now, clock.endsAt)
   if (clock.mode === 'up' && clock.runStartedAt != null) {
@@ -25,12 +32,17 @@ function segmentEnd(clock: Clock, now: number): number {
   return now
 }
 
+// Total running time, including the segment that is still open. This can be
+// larger than the sum of `accruedDays` because time saved before day keys
+// existed has no day attached.
 export function displayAccrued(clock: Clock, now: number): number {
   const accruedMs = Math.max(0, clock.accruedMs)
   if (clock.status !== 'running' || clock.accruedFrom == null) return accruedMs
   return accruedMs + Math.max(0, segmentEnd(clock, now) - clock.accruedFrom)
 }
 
+// Close the open segment into `accruedMs` and into the per-day map, then clear
+// `accruedFrom`. Safe to call when nothing is open; it just clears the marker.
 function bank(clock: Clock, now: number): Clock {
   if (clock.status !== 'running' || clock.accruedFrom == null) {
     return { ...clock, accruedFrom: null }
@@ -45,8 +57,12 @@ function bank(clock: Clock, now: number): Clock {
   }
 }
 
+// A single calendar day is capped so a corrupted timestamp cannot paint
+// "36 hours" as a normal work day. The cap is above 24h to survive DST and a
+// clock change without dropping a real session.
 const DAY_MS_CAP = 36 * 60 * 60 * 1000
 
+// Local calendar day, not UTC. "Yesterday" follows the machine's midnight.
 function dayKey(ms: number): string {
   const date = new Date(ms)
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -59,6 +75,9 @@ function dateFromKey(key: string): Date {
   return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1)
 }
 
+// The next local midnight after `ms`. `setHours(24, 0, 0, 0)` rolls the date
+// forward. If that somehow does not move (a bad date), jump an hour so the
+// slice loop below cannot spin.
 function nextMidnight(ms: number): number {
   const date = new Date(ms)
   date.setHours(24, 0, 0, 0)
@@ -66,6 +85,9 @@ function nextMidnight(ms: number): number {
   return boundary > ms ? boundary : ms + 60 * 60 * 1000
 }
 
+// Add the half-open interval [start, end) to the day map, splitting anywhere
+// it crosses local midnight. A segment is at most ~99 hours, so 8 slices is
+// a hard stop rather than a limit the user can hit.
 function addInterval(
   days: Record<string, number>,
   start: number,
@@ -88,6 +110,8 @@ function addInterval(
   return next
 }
 
+// Stored days plus the open segment, so Today updates while the clock runs
+// and a session that started yesterday already shows on Yesterday before pause.
 function liveDays(clock: Clock, now: number): Record<string, number> {
   const stored = clock.accruedDays ?? {}
   if (clock.status !== 'running' || clock.accruedFrom == null) return stored
@@ -98,6 +122,11 @@ export function todayAccrued(clock: Clock, now: number): number {
   return liveDays(clock, now)[dayKey(now)] ?? 0
 }
 
+// The second day line under the total.
+// Yesterday wins whenever that calendar day has time. Otherwise the latest
+// earlier day that has time is shown as "Last Friday" (2–6 days ago) or
+// "Last Nov 14". A clock with no earlier work still says "Yesterday" and 0,
+// so the line does not disappear on a brand-new project.
 export function priorDay(clock: Clock, now: number): { label: string; ms: number } {
   const days = liveDays(clock, now)
   const today = dayKey(now)
@@ -115,6 +144,8 @@ export function priorDay(clock: Clock, now: number): { label: string; ms: number
 
   const date = dateFromKey(last)
   const todayDate = dateFromKey(today)
+  // Compare local midnights and round, so a DST shift still lands on the
+  // calendar day instead of off-by-one from a raw 24h subtraction.
   const diff = Math.round((todayDate.getTime() - date.getTime()) / 86_400_000)
   const when =
     diff > 1 && diff < 7
@@ -122,6 +153,17 @@ export function priorDay(clock: Clock, now: number): { label: string; ms: number
       : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   return { label: `Last ${when}`, ms: days[last] ?? 0 }
 }
+
+// --- Unbroken attempts -------------------------------------------------------
+//
+// A success is one countdown that starts at its full length and reaches zero
+// without a pause, reset, time edit, or flip to the stopwatch. Stopping early
+// is a failure. The stopwatch never creates a success: it has no natural end
+// except the 99h cap, which only pauses.
+//
+// An attempt opens in `noteStart` when the countdown being started still has
+// `remainingMs === durationMs`. Editing the time before the first start does
+// not fail, because no attempt is open yet.
 
 function fail(clock: Clock): Clock {
   if (!clock.attemptOpen) return clock
@@ -133,6 +175,14 @@ function succeed(clock: Clock): Clock {
   return { ...clock, attemptOpen: false, successes: clock.successes + 1 }
 }
 
+// A countdown that has not been shortened, paused, or partly consumed.
+function fullCountdown(clock: Clock): boolean {
+  return clock.mode !== 'up' && clock.remainingMs === clock.durationMs && clock.remainingMs > 0
+}
+
+// Begin a running segment. Opens an Unbroken attempt only for a full countdown.
+// A stopwatch start, or resuming a countdown that is already part-way, keeps
+// whatever attempt flag was already there (normally false).
 export function noteStart(clock: Clock, now: number): Clock {
   return {
     ...clock,
@@ -141,10 +191,17 @@ export function noteStart(clock: Clock, now: number): Clock {
   }
 }
 
+// Pause banks the open segment and fails an open attempt.
 export function notePause(clock: Clock, now: number): Clock {
   return fail(bank(clock, now))
 }
 
+// Reset banks time and fails an open attempt.
+// `stillRunning` means the reset is restarting the same face immediately
+// (the button was pressed while the clock was running). A countdown restart
+// opens a new attempt because reset puts it back on its full length. A
+// stopwatch restart does not: count-up is not an attempt. A reset while
+// paused or done only closes the books.
 export function noteReset(clock: Clock, now: number, stillRunning: boolean): Clock {
   const interrupted = clock.status !== 'done' && clock.attemptOpen
   let next = interrupted ? fail(bank(clock, now)) : bank(clock, now)
@@ -154,23 +211,35 @@ export function noteReset(clock: Clock, now: number, stillRunning: boolean): Clo
   return next
 }
 
+// Switching between countdown and stopwatch pauses the current face. An open
+// attempt dies here, because the countdown did not reach zero on its own.
 export function noteFlip(clock: Clock, now: number): Clock {
   return fail(bank(clock, now))
 }
 
+// Editing the dial banks the open segment and fails an open attempt. If the
+// clock stays running, a new segment starts at `now` but the attempt stays
+// closed: the edit itself broke the uninterrupted run.
 export function noteEdit(clock: Clock, now: number, stillRunning: boolean): Clock {
   const next = fail(bank(clock, now))
   if (!stillRunning) return next
   return { ...next, accruedFrom: now }
 }
 
+// Natural expiry of a countdown. Counts a success when an attempt was open,
+// and also when the snapshot is still a full countdown. The second case covers
+// a finish whose start note was lost (for example a stale timer closure) so
+// the first clean run is not dropped. `attemptOpen` is forced on before
+// `succeed` so that fallback actually increments.
 export function noteDone(clock: Clock, now: number): Clock {
   const earned = clock.attemptOpen || fullCountdown(clock)
   return succeed(bank({ ...clock, status: 'running', attemptOpen: earned }, now))
 }
 
-// The running snapshot still has the original length. If completion forgot to
-// count a clean countdown, keep the success anyway.
+// Safety net used by App after a render. If a countdown went from running to
+// done and neither successes nor failures moved, the completion path forgot
+// to count a clean run. Add the success. Manual zero is excluded by the
+// caller, which seeds `finishedIds` before committing that edit.
 export function repairUncountedFinish(before: Clock, after: Clock): Clock {
   if (before.mode === 'up' || after.mode === 'up') return after
   if (before.status !== 'running' || after.status !== 'done') return after
@@ -179,15 +248,18 @@ export function repairUncountedFinish(before: Clock, after: Clock): Clock {
   return { ...after, attemptOpen: false, successes: after.successes + 1 }
 }
 
-function fullCountdown(clock: Clock): boolean {
-  return clock.mode !== 'up' && clock.remainingMs === clock.durationMs && clock.remainingMs > 0
-}
-
+// Switching Accumulate / Unbroken is a view change only. Totals and the
+// attempt counters are left alone.
 export function noteKind(clock: Clock, kind: ClockKind): Clock {
   if (kind === clock.kind) return clock
   return { ...clock, kind }
 }
 
+// Finish reconciling a clock just loaded from storage.
+// `finishedAt` is set when a countdown's deadline passed while the tab was
+// closed; that still counts as a real finish. A paused clock that still had
+// an attempt open is a failure. A running full countdown is armed again so
+// the reload itself is not an interruption.
 export function reconcileStored(clock: Clock, now: number, finishedAt: number | null): Clock {
   if (finishedAt != null) {
     const done = noteDone(

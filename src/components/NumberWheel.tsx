@@ -1,3 +1,15 @@
+// A vertical drum for one part of the time (hours, minutes, or seconds).
+//
+// Dragging and the mouse wheel both scroll the drum and report the centered
+// index. The center band is also a text field: typing jumps to that number
+// without scrolling the whole list by hand. The first digit of a value that
+// could still grow (typing "1" when 19 is legal) waits for the next digit. A
+// digit that cannot be a tens place ("7" when the max is 59) commits immediately.
+//
+// Scroll events fire for programmatic `scrollTop` as well as for the user, so
+// `onScroll` reports a change whenever the centered index differs from `value`.
+// The parent decides whether that write is a real edit.
+
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type PointerEvent, type UIEvent } from 'react'
 
 const ITEM = 36
@@ -20,6 +32,8 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const drag = useRef<Drag | null>(null)
   const dragging = useRef(false)
+  // The latest callback, so the wheel listener (attached once) does not call a
+  // stale `onChange` from the render that mounted it.
   const onChangeRef = useRef(onChange)
   const [partial, setPartial] = useState<string | null>(null)
   const [tracked, setTracked] = useState(value)
@@ -42,6 +56,9 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
     input.select()
   }, [])
 
+  // Keep the selected row centered when `value` changes from outside the drag
+  // (a typed digit, the other arrow keys, a reset). Skipped mid-drag so the
+  // finger and the drum do not fight.
   useLayoutEffect(() => {
     const node = scroller.current
     if (!node || dragging.current) return
@@ -87,6 +104,9 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
     if (index !== value) onChangeRef.current(index)
   }
 
+  // `preventDefault` on pointer-down stops the drag from selecting the title
+  // above the card. `data-wheel-drag` on <html> extends that to the whole page
+  // for as long as the pointer is down, including after it leaves the wheel.
   function onPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return
     event.preventDefault()
@@ -117,6 +137,8 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
     dragging.current = false
     if (!current) return
     const node = event.currentTarget
+    // A drag that ends over the dial would also click the hour/minute button
+    // and immediately close the wheel. Swallow that one click.
     if (current.moved) swallowClick()
     const size = itemSize(node)
     if (!current.moved) {
@@ -131,6 +153,10 @@ export function NumberWheel({ label, value, max, onChange }: NumberWheelProps) {
     if (index !== value) onChangeRef.current(index)
   }
 
+  // `done` means this keystroke cannot be the start of a larger legal number,
+  // so the field selects itself again and is ready for the next entry. Until
+  // then the raw digits stay in `partial` (the wheel still moves to the value
+  // typed so far).
   function onType(event: ChangeEvent<HTMLInputElement>) {
     const typed = event.target.value.replace(/\D/g, '').slice(0, digits)
     if (typed === '') {
@@ -249,6 +275,8 @@ function padSize(node: HTMLElement): number {
   return Number.parseFloat(getComputedStyle(node).paddingTop) || 0
 }
 
+// Catch the click that the browser synthesizes after a pointer-up, once, on
+// the way down. The timeout removes it if no click follows (a cancelled drag).
 function swallowClick() {
   const block = (event: MouseEvent) => {
     event.preventDefault()

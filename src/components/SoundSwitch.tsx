@@ -1,3 +1,6 @@
+// Finish-sound radios. Choosing one also plays it, so the preview happens
+// inside the click or key gesture that browsers require for audio.
+
 import { useRef, type KeyboardEvent } from 'react'
 import { playSound } from '../sounds'
 import { SOUNDS, type SoundId } from '../types'

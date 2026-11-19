@@ -9,6 +9,7 @@
 // An open attempt is shown as a provisional success so the rate moves as soon
 // as a clean run starts, and falls back if that run is interrupted.
 
+import { useEffect, useRef, useState } from 'react'
 import { displayAccrued, priorDay, todayAccrued } from '../ledger'
 import { formatKept } from '../time'
 import type { Clock, ClockKind } from '../types'
@@ -43,9 +44,7 @@ export function ClockBack({ clock, now, onKind, onTurn, onDelete }: ClockBackPro
         </div>
         <div className="card-tools">
           <TurnButton label={`Show the clock for ${clock.label}`} pressed onClick={onTurn} />
-          <button type="button" className="btn btn-quiet" aria-label={`Delete ${clock.label}`} onClick={onDelete}>
-            Delete
-          </button>
+          <DeleteButton label={clock.label} onDelete={onDelete} />
         </div>
       </div>
 
@@ -112,6 +111,51 @@ export function ClockBack({ clock, now, onKind, onTurn, onDelete }: ClockBackPro
         )}
       </div>
     </div>
+  )
+}
+
+// First click arms the button. It stays armed until a second click deletes
+// the project, Escape cancels, or a press lands somewhere else.
+export function DeleteButton({ label, onDelete }: { label: string; onDelete: () => void }) {
+  const [armed, setArmed] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!armed) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setArmed(false)
+    }
+    const onPointer = (event: PointerEvent) => {
+      if (event.target instanceof Node && ref.current?.contains(event.target)) return
+      setArmed(false)
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('pointerdown', onPointer)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('pointerdown', onPointer)
+    }
+  }, [armed])
+
+  function requestDelete() {
+    if (!armed) {
+      setArmed(true)
+      return
+    }
+    onDelete()
+  }
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className="btn btn-quiet"
+      data-armed={armed ? 'true' : 'false'}
+      aria-label={armed ? `Confirm delete ${label}` : `Delete ${label}`}
+      onClick={requestDelete}
+    >
+      {armed ? 'Confirm' : 'Delete'}
+    </button>
   )
 }
 

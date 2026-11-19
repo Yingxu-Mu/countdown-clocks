@@ -414,7 +414,8 @@ input::placeholder {
   font-size: 14px;
 }
 
-.btn-quiet:hover {
+.btn-quiet:hover,
+.btn-quiet[data-armed='true'] {
   color: var(--warn);
   background: var(--warn-soft);
 }

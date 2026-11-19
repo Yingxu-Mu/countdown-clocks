@@ -24,7 +24,7 @@ import {
 } from 'react'
 import type { Clock, ClockKind } from '../types'
 import { MAX_DURATION_MS, displayClock, formatClock } from '../time'
-import { ClockBack, TurnButton } from './ClockBack'
+import { ClockBack, DeleteButton, TurnButton } from './ClockBack'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
@@ -391,9 +391,7 @@ export function ClockCard({
         </div>
         <div className="card-tools">
           <TurnButton label={`Show kept time for ${clock.label}`} onClick={showBack} />
-          <button type="button" className="btn btn-quiet" aria-label={`Delete ${clock.label}`} onClick={onDelete}>
-            Delete
-          </button>
+          <DeleteButton label={clock.label} onDelete={onDelete} />
         </div>
       </div>
 

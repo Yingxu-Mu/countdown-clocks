@@ -17,7 +17,7 @@ import { DraftClock } from './components/DraftClock'
 import { SoundSwitch } from './components/SoundSwitch'
 import { StyleSwitch } from './components/StyleSwitch'
 import { DEFAULT_CLOCK_ICON } from './icons'
-import { freshLedger, noteEdit, noteFlip, noteKind, notePause, noteReset, noteStart, repairUncountedFinish } from './ledger'
+import { freshLedger, noteEdit, noteFlip, noteFocus, noteKind, notePause, noteReset, noteStart, repairUncountedFinish } from './ledger'
 import { playSound, prepareSound, primeAudio, unlockSound } from './sounds'
 import { indexUnderPoint, type FrozenSlot } from './reorder'
 import { loadClocks, loadSettings, saveClocks, saveSettings, subscribeStorage } from './storage'
@@ -463,6 +463,10 @@ export default function App() {
     setClocks((current) => current.map((clock) => (clock.id === id ? noteKind(clock, kind) : clock)))
   }
 
+  function updateFocus(id: string, focus: boolean) {
+    setClocks((current) => current.map((clock) => (clock.id === id ? noteFocus(clock, focus) : clock)))
+  }
+
   function updateTitle(id: string, label: string) {
     const next = label.trim().slice(0, 40)
     if (!next) return
@@ -672,6 +676,7 @@ export default function App() {
                   onTimeChange={(totalSeconds) => updateTime(clock.id, totalSeconds)}
                   onFlip={() => flipClock(clock.id)}
                   onKind={(kind) => updateKind(clock.id, kind)}
+                  onFocus={(focus) => updateFocus(clock.id, focus)}
                   onReorderPointerDown={(event) => onReorderPointerDown(clock.id, event)}
                   onReorderPointerMove={(event) => onReorderPointerMove(clock.id, event)}
                   onReorderPointerUp={(event) => onReorderPointerUp(clock.id, event)}

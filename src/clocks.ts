@@ -24,7 +24,8 @@ export function nextLabel(clocks: readonly Clock[]): string {
 //
 // A stopwatch that reaches 99:59:59 is paused, not marked done, and it does
 // not chime. A countdown whose `endsAt` has passed is the only path that
-// counts an Unbroken success and later plays the finish sound.
+// counts an Unbroken success, and only when that run had focus on. The finish
+// sound plays afterwards.
 export function settleClocks(clocks: readonly Clock[], now: number): Clock[] {
   let changed = false
   const next = clocks.map((clock) => {

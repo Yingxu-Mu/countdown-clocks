@@ -24,7 +24,7 @@ import {
 } from 'react'
 import type { Clock, ClockKind } from '../types'
 import { MAX_DURATION_MS, displayClock, formatClock } from '../time'
-import { ClockBack, DeleteButton, TurnButton } from './ClockBack'
+import { ClockBack, DeleteButton, FocusToggle, TurnButton } from './ClockBack'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
@@ -49,6 +49,7 @@ type ClockCardProps = {
   onTimeChange: (totalSeconds: number) => void
   onFlip: () => void
   onKind: (kind: ClockKind) => void
+  onFocus: (focus: boolean) => void
   dragging: boolean
   dragStyle?: CSSProperties
   onReorderPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -69,6 +70,7 @@ export function ClockCard({
   onTimeChange,
   onFlip,
   onKind,
+  onFocus,
   dragging,
   dragStyle,
   onReorderPointerDown,
@@ -390,6 +392,7 @@ export function ClockCard({
           </h3>
         </div>
         <div className="card-tools">
+          <FocusToggle label={clock.label} pressed={clock.focus} onChange={onFocus} />
           <TurnButton label={`Show kept time for ${clock.label}`} onClick={showBack} />
           <DeleteButton label={clock.label} onDelete={onDelete} />
         </div>
@@ -503,6 +506,7 @@ export function ClockCard({
               now={now}
               onKind={onKind}
               onTurn={showFront}
+              onFocus={onFocus}
               onDelete={onDelete}
             />
           </div>

@@ -744,6 +744,40 @@ input::placeholder {
   display: block;
 }
 
+.focus-toggle {
+  appearance: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.focus-toggle:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.focus-toggle[aria-checked='true'] {
+  color: var(--accent);
+}
+
+.focus-toggle[aria-checked='true']:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.focus-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .insight {
   flex: 1;
   display: flex;

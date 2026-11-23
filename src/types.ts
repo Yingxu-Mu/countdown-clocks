@@ -64,14 +64,20 @@ export type Clock = {
   // segment is merged in when Today / Yesterday are rendered. Time stored
   // before this map existed stays in `accruedMs` only.
   accruedDays: Record<string, number>
-  // Countdowns that ran from their full length to zero with no pause, reset,
-  // time edit, or flip to the stopwatch.
+  // Countdowns that ran from their full length to zero with focus on and no
+  // pause, reset, time edit, or flip to the stopwatch.
   successes: number
   // Those same attempts that were interrupted before zero.
   failures: number
-  // True while a full-length countdown is in progress and still eligible to
-  // become a success. Count-up never opens an attempt.
+  // True while a focused, full-length countdown is in progress and still
+  // eligible to become a success. Count-up never opens an attempt, and a
+  // countdown started with focus off never does either.
   attemptOpen: boolean
+  // When on, the next full countdown can become an Unbroken success or
+  // failure. When off, countdowns still run and still add to Accumulate,
+  // but they leave the Unbroken counters alone. Turning it off mid-attempt
+  // drops that attempt without counting it.
+  focus: boolean
   status: ClockStatus
 }
 

@@ -2,12 +2,13 @@ import { MAX_DURATION_MS, finiteMs } from './time'
 import type { Clock, ClockKind } from './types'
 
 // Both ledgers start empty. `kind` is only the view on the back of the card:
-// Accumulate shows the time totals, Unbroken shows the success rate. Recording
-// does not wait for the user to pick a view.
+// Accumulate shows the time totals, Unbroken shows the success rate. Accumulate
+// records every running minute. Unbroken records a countdown only while focus
+// is on.
 
 export function freshLedger(): Pick<
   Clock,
-  'kind' | 'accruedMs' | 'accruedFrom' | 'accruedDays' | 'successes' | 'failures' | 'attemptOpen'
+  'kind' | 'accruedMs' | 'accruedFrom' | 'accruedDays' | 'successes' | 'failures' | 'attemptOpen' | 'focus'
 > {
   return {
     kind: 'accumulate',
@@ -17,6 +18,7 @@ export function freshLedger(): Pick<
     successes: 0,
     failures: 0,
     attemptOpen: false,
+    focus: true,
   }
 }
 
@@ -156,14 +158,16 @@ export function priorDay(clock: Clock, now: number): { label: string; ms: number
 
 // --- Unbroken attempts -------------------------------------------------------
 //
-// A success is one countdown that starts at its full length and reaches zero
-// without a pause, reset, time edit, or flip to the stopwatch. Stopping early
-// is a failure. The stopwatch never creates a success: it has no natural end
-// except the 99h cap, which only pauses.
+// A success is one focused countdown that starts at its full length and reaches
+// zero without a pause, reset, time edit, or flip to the stopwatch. Stopping
+// early is a failure. The stopwatch never creates a success: it has no natural
+// end except the 99h cap, which only pauses. A countdown with focus off never
+// opens an attempt, so it can neither succeed nor fail.
 //
-// An attempt opens in `noteStart` when the countdown being started still has
-// `remainingMs === durationMs`. Editing the time before the first start does
-// not fail, because no attempt is open yet.
+// An attempt opens in `noteStart` when focus is on and the countdown being
+// started still has `remainingMs === durationMs`. Editing the time before the
+// first start does not fail, because no attempt is open yet. Turning focus off
+// drops an open attempt without counting it.
 
 function fail(clock: Clock): Clock {
   if (!clock.attemptOpen) return clock
@@ -180,14 +184,21 @@ function fullCountdown(clock: Clock): boolean {
   return clock.mode !== 'up' && clock.remainingMs === clock.durationMs && clock.remainingMs > 0
 }
 
-// Begin a running segment. Opens an Unbroken attempt only for a full countdown.
-// A stopwatch start, or resuming a countdown that is already part-way, keeps
-// whatever attempt flag was already there (normally false).
+// The only shape that may open an Unbroken attempt: focus on, and a countdown
+// that is still showing its full length.
+function focusAttempt(clock: Clock): boolean {
+  return clock.focus && fullCountdown(clock)
+}
+
+// Begin a running segment. Opens an Unbroken attempt only for a focused full
+// countdown. A stopwatch start, a countdown with focus off, or resuming a
+// countdown that is already part-way keeps whatever attempt flag was already
+// there (normally false).
 export function noteStart(clock: Clock, now: number): Clock {
   return {
     ...clock,
     accruedFrom: now,
-    attemptOpen: fullCountdown(clock) ? true : clock.attemptOpen,
+    attemptOpen: focusAttempt(clock) ? true : clock.attemptOpen,
   }
 }
 
@@ -198,16 +209,16 @@ export function notePause(clock: Clock, now: number): Clock {
 
 // Reset banks time and fails an open attempt.
 // `stillRunning` means the reset is restarting the same face immediately
-// (the button was pressed while the clock was running). A countdown restart
-// opens a new attempt because reset puts it back on its full length. A
-// stopwatch restart does not: count-up is not an attempt. A reset while
+// (the button was pressed while the clock was running). A focused countdown
+// restart opens a new attempt because reset puts it back on its full length.
+// A stopwatch restart, or a countdown with focus off, does not. A reset while
 // paused or done only closes the books.
 export function noteReset(clock: Clock, now: number, stillRunning: boolean): Clock {
   const interrupted = clock.status !== 'done' && clock.attemptOpen
   let next = interrupted ? fail(bank(clock, now)) : bank(clock, now)
   if (!stillRunning) return next
   next = { ...next, accruedFrom: now }
-  if (clock.mode !== 'up') next = { ...next, attemptOpen: true }
+  if (clock.focus && clock.mode !== 'up') next = { ...next, attemptOpen: true }
   return next
 }
 
@@ -226,26 +237,38 @@ export function noteEdit(clock: Clock, now: number, stillRunning: boolean): Cloc
   return { ...next, accruedFrom: now }
 }
 
-// Natural expiry of a countdown. Counts a success when an attempt was open,
-// and also when the snapshot is still a full countdown. The second case covers
-// a finish whose start note was lost (for example a stale timer closure) so
-// the first clean run is not dropped. `attemptOpen` is forced on before
-// `succeed` so that fallback actually increments.
+// Natural expiry of a countdown. Counts a success when focus is on and an
+// attempt was open, and also when focus is on and the snapshot is still a full
+// countdown. The second case covers a finish whose start note was lost (for
+// example a stale timer closure) so the first clean focused run is not dropped.
+// `attemptOpen` is forced on before `succeed` so that fallback actually
+// increments. Focus off never earns a success.
 export function noteDone(clock: Clock, now: number): Clock {
-  const earned = clock.attemptOpen || fullCountdown(clock)
+  const earned = clock.focus && (clock.attemptOpen || fullCountdown(clock))
   return succeed(bank({ ...clock, status: 'running', attemptOpen: earned }, now))
 }
 
-// Safety net used by App after a render. If a countdown went from running to
-// done and neither successes nor failures moved, the completion path forgot
-// to count a clean run. Add the success. Manual zero is excluded by the
-// caller, which seeds `finishedIds` before committing that edit.
+// Safety net used by App after a render. If a focused countdown went from
+// running to done and neither successes nor failures moved, the completion
+// path forgot to count a clean run. Add the success. Manual zero is excluded
+// by the caller, which seeds `finishedIds` before committing that edit.
 export function repairUncountedFinish(before: Clock, after: Clock): Clock {
   if (before.mode === 'up' || after.mode === 'up') return after
   if (before.status !== 'running' || after.status !== 'done') return after
   if (after.successes !== before.successes || after.failures !== before.failures) return after
+  if (!before.focus) return after
   if (!before.attemptOpen && !fullCountdown(before)) return after
   return { ...after, attemptOpen: false, successes: after.successes + 1 }
+}
+
+// Focus is the gate on Unbroken. Turning it on does not adopt a run that has
+// already started; the next full countdown start is what opens an attempt.
+// Turning it off drops an open attempt without a success or a failure, and
+// the clock keeps running.
+export function noteFocus(clock: Clock, focus: boolean): Clock {
+  if (clock.focus === focus) return clock
+  if (!focus) return { ...clock, focus: false, attemptOpen: false }
+  return { ...clock, focus: true }
 }
 
 // Switching Accumulate / Unbroken is a view change only. Totals and the
@@ -257,9 +280,9 @@ export function noteKind(clock: Clock, kind: ClockKind): Clock {
 
 // Finish reconciling a clock just loaded from storage.
 // `finishedAt` is set when a countdown's deadline passed while the tab was
-// closed; that still counts as a real finish. A paused clock that still had
-// an attempt open is a failure. A running full countdown is armed again so
-// the reload itself is not an interruption.
+// closed; that still counts as a real finish when focus is on. A paused clock
+// that still had an attempt open is a failure. A running focused full
+// countdown is armed again so the reload itself is not an interruption.
 export function reconcileStored(clock: Clock, now: number, finishedAt: number | null): Clock {
   if (finishedAt != null) {
     const done = noteDone(
@@ -273,6 +296,6 @@ export function reconcileStored(clock: Clock, now: number, finishedAt: number | 
     return { ...closed, accruedFrom: null }
   }
   const accruedFrom = clock.accruedFrom ?? now
-  if (fullCountdown(clock)) return { ...clock, accruedFrom, attemptOpen: true }
+  if (clock.focus && fullCountdown(clock)) return { ...clock, accruedFrom, attemptOpen: true }
   return { ...clock, accruedFrom }
 }

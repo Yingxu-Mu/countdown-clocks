@@ -18,7 +18,7 @@ export function freshLedger(): Pick<
     successes: 0,
     failures: 0,
     attemptOpen: false,
-    focus: true,
+    focus: false,
   }
 }
 

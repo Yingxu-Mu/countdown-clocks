@@ -70,9 +70,8 @@ function normalizeClock(value: unknown, now: number): Clock | null {
   let successes = countOf(value.successes)
   let failures = countOf(value.failures)
   let attemptOpen = value.attemptOpen === true
-  // Clocks saved before focus existed were already scoring every clean
-  // countdown, so a missing value stays on. Only an explicit false turns it off.
-  const focus = value.focus !== false
+  // Missing means off. A clock only scores Unbroken after focus is turned on.
+  const focus = value.focus === true
   let finishedAt: number | null = null
 
   if (mode === 'up') {

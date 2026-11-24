@@ -12,6 +12,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createId, nextLabel, settleClocks, summarize } from './clocks'
+import { ArchiveSection } from './components/ArchiveList'
 import { ClockCard } from './components/ClockCard'
 import { DraftClock } from './components/DraftClock'
 import { SoundSwitch } from './components/SoundSwitch'
@@ -275,9 +276,12 @@ export default function App() {
         elapsedMs: 0,
         runStartedAt: null,
         status: 'paused',
+        archived: false,
         ...freshLedger(),
       }
-      return [...current, clock]
+      const active = current.filter((item) => !item.archived)
+      const archived = current.filter((item) => item.archived)
+      return [...active, clock, ...archived]
     })
     setRecentSeconds((current) => rememberDuration(current, DEFAULT_DURATION_MS))
   }
@@ -467,6 +471,50 @@ export default function App() {
     setClocks((current) => current.map((clock) => (clock.id === id ? noteFocus(clock, focus) : clock)))
   }
 
+  // File a project out of the working grid. A running clock is paused first,
+  // so its open time is banked and an open focus attempt is closed. The
+  // ledgers stay on the clock. Newest archives sit at the front of the section.
+  function archiveClock(id: string) {
+    const time = Date.now()
+    setNow(time)
+    setClocks((current) => {
+      const clock = current.find((item) => item.id === id)
+      if (!clock || clock.archived) return current
+      let filed = clock
+      if (clock.status === 'running') {
+        const noted = notePause(clock, time)
+        if (clock.mode === 'up' && clock.runStartedAt != null) {
+          filed = {
+            ...noted,
+            status: 'paused',
+            elapsedMs: Math.min(MAX_DURATION_MS, finiteMs(clock.elapsedMs) + Math.max(0, time - clock.runStartedAt)),
+            runStartedAt: null,
+          }
+        } else if (clock.mode !== 'up' && clock.endsAt != null) {
+          filed = {
+            ...noted,
+            status: 'paused',
+            remainingMs: Math.max(0, clock.endsAt - time),
+            endsAt: null,
+          }
+        }
+      }
+      filed = { ...filed, archived: true }
+      const rest = current.filter((item) => item.id !== id)
+      return [...rest.filter((item) => !item.archived), filed, ...rest.filter((item) => item.archived)]
+    })
+  }
+
+  // Bring a filed project back to the end of the working grid. It stays paused.
+  function restoreClock(id: string) {
+    setClocks((current) => {
+      const clock = current.find((item) => item.id === id)
+      if (!clock || !clock.archived) return current
+      const rest = current.filter((item) => item.id !== id)
+      return [...rest.filter((item) => !item.archived), { ...clock, archived: false }, ...rest.filter((item) => item.archived)]
+    })
+  }
+
   function updateTitle(id: string, label: string) {
     const next = label.trim().slice(0, 40)
     if (!next) return
@@ -515,8 +563,10 @@ export default function App() {
       if (from < 0) return clocks
       const next = [...clocks]
       const [clock] = next.splice(from, 1)
-      if (!clock) return clocks
-      next.splice(Math.min(slot < 0 ? next.length : slot, next.length), 0, clock)
+      if (!clock || clock.archived) return clocks
+      const activeCount = next.filter((item) => !item.archived).length
+      const index = slot < 0 ? activeCount : Math.min(slot, activeCount)
+      next.splice(index, 0, clock)
       if (next.every((item, index) => item.id === clocks[index]?.id)) return clocks
       return next
     })
@@ -618,14 +668,16 @@ export default function App() {
     if (direction === 0) return
     event.preventDefault()
     setClocks((current) => {
-      const from = current.findIndex((clock) => clock.id === id)
-      const toIndex = from + direction
-      if (from < 0 || toIndex < 0 || toIndex >= current.length) return current
-      const next = [...current]
+      const active = current.filter((clock) => !clock.archived)
+      const archived = current.filter((clock) => clock.archived)
+      const from = active.findIndex((clock) => clock.id === id)
+      const to = from + direction
+      if (from < 0 || to < 0 || to >= active.length) return current
+      const next = [...active]
       const [clock] = next.splice(from, 1)
       if (!clock) return current
-      next.splice(toIndex, 0, clock)
-      return next
+      next.splice(to, 0, clock)
+      return [...next, ...archived]
     })
   }
 
@@ -648,10 +700,10 @@ export default function App() {
         <section aria-labelledby="list-heading">
           <div className="section-head">
             <h2 id="list-heading">Your clocks</h2>
-            <p className="summary">{summarize(clocks)}</p>
+            <p className="summary">{summarize(clocks.filter((clock) => !clock.archived))}</p>
           </div>
           <ul className="clock-grid">
-            {clocks.map((clock) => (
+            {clocks.filter((clock) => !clock.archived).map((clock) => (
               <li
                 key={clock.id}
                 data-clock-id={clock.id}
@@ -677,6 +729,7 @@ export default function App() {
                   onFlip={() => flipClock(clock.id)}
                   onKind={(kind) => updateKind(clock.id, kind)}
                   onFocus={(focus) => updateFocus(clock.id, focus)}
+                  onArchive={() => archiveClock(clock.id)}
                   onReorderPointerDown={(event) => onReorderPointerDown(clock.id, event)}
                   onReorderPointerMove={(event) => onReorderPointerMove(clock.id, event)}
                   onReorderPointerUp={(event) => onReorderPointerUp(clock.id, event)}
@@ -689,11 +742,18 @@ export default function App() {
             </li>
           </ul>
         </section>
+        <ArchiveSection
+          clocks={clocks.filter((clock) => clock.archived)}
+          now={now}
+          onRestore={restoreClock}
+          onDelete={deleteClock}
+        />
       </main>
 
       <p className="footnote">
         Saved in this browser. A running clock keeps its deadline if you leave the tab. Time spent
-        running stays on the back of each clock. Sound plays the finish tone you picked when a clock ends.
+        running stays on the back of each clock. Archiving a project keeps those stats and takes the
+        clock off this list. Sound plays the finish tone you picked when a clock ends.
       </p>
     </div>
   )

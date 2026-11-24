@@ -20,11 +20,12 @@ type ClockBackProps = {
   now: number
   onKind: (kind: ClockKind) => void
   onFocus: (focus: boolean) => void
+  onArchive: () => void
   onTurn: () => void
   onDelete: () => void
 }
 
-export function ClockBack({ clock, now, onKind, onFocus, onTurn, onDelete }: ClockBackProps) {
+export function ClockBack({ clock, now, onKind, onFocus, onArchive, onTurn, onDelete }: ClockBackProps) {
   const unbroken = clock.kind === 'continuous'
   // Count the in-progress clean run as a success for the percentage only.
   // The stored `successes` value is not incremented until the countdown ends.
@@ -46,7 +47,7 @@ export function ClockBack({ clock, now, onKind, onFocus, onTurn, onDelete }: Clo
         <div className="card-tools">
           <FocusToggle label={clock.label} pressed={clock.focus} onChange={onFocus} />
           <TurnButton label={`Show the clock for ${clock.label}`} pressed onClick={onTurn} />
-          <DeleteButton label={clock.label} onDelete={onDelete} />
+          <DeleteButton label={clock.label} onDelete={onDelete} onArchive={onArchive} />
         </div>
       </div>
 
@@ -116,20 +117,31 @@ export function ClockBack({ clock, now, onKind, onFocus, onTurn, onDelete }: Clo
   )
 }
 
-// First click arms the button. It stays armed until a second click deletes
-// the project, Escape cancels, or a press lands somewhere else.
-export function DeleteButton({ label, onDelete }: { label: string; onDelete: () => void }) {
-  const [armed, setArmed] = useState(false)
-  const ref = useRef<HTMLButtonElement>(null)
+// On a working clock, Delete opens a choice: archive the project (stats stay)
+// or confirm the delete. In the archive there is nothing left to file, so the
+// same button arms itself and a second click deletes. Escape, or a press
+// anywhere else, cancels either one.
+export function DeleteButton({
+  label,
+  onDelete,
+  onArchive,
+}: {
+  label: string
+  onDelete: () => void
+  onArchive?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const archiveRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (!armed) return
+    if (!open) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setArmed(false)
+      if (event.key === 'Escape') setOpen(false)
     }
     const onPointer = (event: PointerEvent) => {
       if (event.target instanceof Node && ref.current?.contains(event.target)) return
-      setArmed(false)
+      setOpen(false)
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('pointerdown', onPointer)
@@ -137,27 +149,61 @@ export function DeleteButton({ label, onDelete }: { label: string; onDelete: () 
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('pointerdown', onPointer)
     }
-  }, [armed])
+  }, [open])
+
+  useEffect(() => {
+    if (open && onArchive) archiveRef.current?.focus()
+  }, [open, onArchive])
 
   function requestDelete() {
-    if (!armed) {
-      setArmed(true)
+    if (!open) {
+      setOpen(true)
       return
     }
-    onDelete()
+    if (!onArchive) onDelete()
+    else setOpen(false)
   }
 
   return (
-    <button
-      ref={ref}
-      type="button"
-      className="btn btn-quiet"
-      data-armed={armed ? 'true' : 'false'}
-      aria-label={armed ? `Confirm delete ${label}` : `Delete ${label}`}
-      onClick={requestDelete}
-    >
-      {armed ? 'Confirm' : 'Delete'}
-    </button>
+    <div className="remove-choice" ref={ref}>
+      <button
+        type="button"
+        className="btn btn-quiet"
+        data-armed={open ? 'true' : 'false'}
+        aria-expanded={onArchive ? open : undefined}
+        aria-haspopup={onArchive ? 'dialog' : undefined}
+        aria-label={!onArchive && open ? `Confirm delete ${label}` : `Delete ${label}`}
+        onClick={requestDelete}
+      >
+        {!onArchive && open ? 'Confirm' : 'Delete'}
+      </button>
+      {open && onArchive ? (
+        <div className="remove-menu" role="dialog" aria-label={`Remove ${label}`}>
+          <button
+            ref={archiveRef}
+            type="button"
+            aria-label={`Archive ${label}`}
+            onClick={() => {
+              setOpen(false)
+              onArchive()
+            }}
+          >
+            Archive
+          </button>
+          <button
+            type="button"
+            className="remove-delete"
+            aria-label={`Confirm delete ${label}`}
+            onClick={() => {
+              setOpen(false)
+              onDelete()
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

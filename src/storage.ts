@@ -4,8 +4,8 @@
 // running even when the browser refuses to store it.
 
 import { normalizeIcon } from './icons'
-import { reconcileStored } from './ledger'
-import { MAX_DURATION_MS, rememberDuration } from './time'
+import { notePause, reconcileStored } from './ledger'
+import { MAX_DURATION_MS, finiteMs, rememberDuration } from './time'
 import { isSoundId, isThemeId, type Clock, type ClockKind, type ClockMode, type ClockStatus, type Settings, type SoundId } from './types'
 
 const CLOCKS_KEY = 'countdown-clocks.clocks.v1'
@@ -72,6 +72,7 @@ function normalizeClock(value: unknown, now: number): Clock | null {
   let attemptOpen = value.attemptOpen === true
   // Missing means off. A clock only scores Unbroken after focus is turned on.
   const focus = value.focus === true
+  const archived = value.archived === true
   let finishedAt: number | null = null
 
   if (mode === 'up') {
@@ -123,7 +124,7 @@ function normalizeClock(value: unknown, now: number): Clock | null {
     runStartedAt = null
   }
 
-  return reconcileStored(
+  const clock = reconcileStored(
     {
       id: value.id,
       label: value.label.trim().slice(0, 40) || 'Clock',
@@ -142,11 +143,30 @@ function normalizeClock(value: unknown, now: number): Clock | null {
       failures,
       attemptOpen,
       focus,
+      archived,
       status,
     },
     now,
     finishedAt,
   )
+  // An archived project is filed, not tracking. A deadline that passed while
+  // the tab was closed was already counted above; anything still running is
+  // paused here so the archive cannot keep a live clock.
+  if (!clock.archived || clock.status !== 'running') return clock
+  const noted = notePause(clock, now)
+  if (clock.mode === 'up') {
+    const banked =
+      clock.runStartedAt == null
+        ? clock.elapsedMs
+        : Math.min(MAX_DURATION_MS, finiteMs(clock.elapsedMs) + Math.max(0, now - clock.runStartedAt))
+    return { ...noted, status: 'paused', elapsedMs: banked, runStartedAt: null, endsAt: null }
+  }
+  return {
+    ...noted,
+    status: 'paused',
+    remainingMs: clock.endsAt == null ? clock.remainingMs : Math.max(0, clock.endsAt - now),
+    endsAt: null,
+  }
 }
 
 function countOf(value: unknown): number {

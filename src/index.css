@@ -718,6 +718,55 @@ input::placeholder {
   flex: 0 0 auto;
 }
 
+.remove-choice {
+  position: relative;
+  z-index: 4;
+}
+
+.remove-menu {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 148px;
+  padding: 6px;
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elev);
+  box-shadow: var(--shadow);
+}
+
+.remove-menu button {
+  appearance: none;
+  border: 0;
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.remove-menu button:hover,
+.remove-menu button:focus-visible {
+  background: var(--hover);
+}
+
+.remove-menu .remove-delete {
+  color: var(--warn);
+}
+
+.remove-menu .remove-delete:hover,
+.remove-menu .remove-delete:focus-visible {
+  background: var(--warn-soft);
+}
+
 .turn-card {
   appearance: none;
   width: 32px;
@@ -742,6 +791,97 @@ input::placeholder {
   width: 18px;
   height: 18px;
   display: block;
+}
+
+.archive-head {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.archive-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.archive-head h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.archive-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.archive-head[aria-expanded='true'] .archive-chevron {
+  transform: rotate(90deg);
+}
+
+.archive-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.archive-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.archive-copy {
+  min-width: 0;
+}
+
+.archive-name {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.archive-meta {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-row .card-icon {
+  margin-top: 1px;
+}
+
+.archive-actions {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 2px;
 }
 
 .focus-toggle {

@@ -78,6 +78,9 @@ export type Clock = {
   // but they leave the Unbroken counters alone. Turning it off mid-attempt
   // drops that attempt without counting it.
   focus: boolean
+  // Filed out of the working grid. The ledgers stay. A running clock is paused
+  // at the moment it is archived, and it does not keep tracking until restored.
+  archived: boolean
   status: ClockStatus
 }
 

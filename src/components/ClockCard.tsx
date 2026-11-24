@@ -50,6 +50,7 @@ type ClockCardProps = {
   onFlip: () => void
   onKind: (kind: ClockKind) => void
   onFocus: (focus: boolean) => void
+  onArchive: () => void
   dragging: boolean
   dragStyle?: CSSProperties
   onReorderPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
@@ -71,6 +72,7 @@ export function ClockCard({
   onFlip,
   onKind,
   onFocus,
+  onArchive,
   dragging,
   dragStyle,
   onReorderPointerDown,
@@ -394,7 +396,7 @@ export function ClockCard({
         <div className="card-tools">
           <FocusToggle label={clock.label} pressed={clock.focus} onChange={onFocus} />
           <TurnButton label={`Show kept time for ${clock.label}`} onClick={showBack} />
-          <DeleteButton label={clock.label} onDelete={onDelete} />
+          <DeleteButton label={clock.label} onDelete={onDelete} onArchive={onArchive} />
         </div>
       </div>
 
@@ -507,6 +509,7 @@ export function ClockCard({
               onKind={onKind}
               onTurn={showFront}
               onFocus={onFocus}
+              onArchive={onArchive}
               onDelete={onDelete}
             />
           </div>

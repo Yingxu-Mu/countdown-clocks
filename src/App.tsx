@@ -722,7 +722,6 @@ export default function App() {
                   onPause={() => pauseClock(clock.id)}
                   onResume={() => resumeClock(clock.id)}
                   onReset={() => resetClock(clock.id)}
-                  onDelete={() => deleteClock(clock.id)}
                   onIconChange={(icon) => updateIcon(clock.id, icon)}
                   onTitleChange={(label) => updateTitle(clock.id, label)}
                   onTimeChange={(totalSeconds) => updateTime(clock.id, totalSeconds)}

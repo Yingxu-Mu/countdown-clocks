@@ -19,13 +19,11 @@ type ClockBackProps = {
   clock: Clock
   now: number
   onKind: (kind: ClockKind) => void
-  onFocus: (focus: boolean) => void
   onArchive: () => void
   onTurn: () => void
-  onDelete: () => void
 }
 
-export function ClockBack({ clock, now, onKind, onFocus, onArchive, onTurn, onDelete }: ClockBackProps) {
+export function ClockBack({ clock, now, onKind, onArchive, onTurn }: ClockBackProps) {
   const unbroken = clock.kind === 'continuous'
   // Count the in-progress clean run as a success for the percentage only.
   // The stored `successes` value is not incremented until the countdown ends.
@@ -44,15 +42,9 @@ export function ClockBack({ clock, now, onKind, onFocus, onArchive, onTurn, onDe
           <ClockIcon icon={clock.icon} className="card-icon" />
           <h3 className="card-label">{clock.label}</h3>
         </div>
-        <div className="card-tools">
-          <FocusToggle label={clock.label} pressed={clock.focus} onChange={onFocus} />
-          <TurnButton label={`Show the clock for ${clock.label}`} pressed onClick={onTurn} />
-          <DeleteButton label={clock.label} onDelete={onDelete} onArchive={onArchive} />
-        </div>
       </div>
 
-      <div className="insight">
-        <div className="segment insight-kind" role="radiogroup" aria-label={`How ${clock.label} keeps time`}>
+      <div className="segment insight-kind" role="radiogroup" aria-label={`How ${clock.label} keeps time`}>
           <button
             type="button"
             role="radio"
@@ -69,8 +61,9 @@ export function ClockBack({ clock, now, onKind, onFocus, onArchive, onTurn, onDe
           >
             Unbroken
           </button>
-        </div>
+      </div>
 
+      <div className="insight">
         {unbroken ? (
           <>
             <div className="rates">
@@ -109,39 +102,45 @@ export function ClockBack({ clock, now, onKind, onFocus, onArchive, onTurn, onDe
                 <p className="insight-caption">{prior.label}</p>
               </div>
             </div>
-            <p className="insight-note">Every minute the clock is running, in either direction.</p>
           </>
         )}
+      </div>
+      <div className="actions">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          aria-label={`Show the clock for ${clock.label}`}
+          onClick={onTurn}
+        >
+          Flip
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          aria-label={`Archive ${clock.label}`}
+          onClick={onArchive}
+        >
+          Archive
+        </button>
       </div>
     </div>
   )
 }
 
-// On a working clock, Delete opens a choice: archive the project (stats stay)
-// or confirm the delete. In the archive there is nothing left to file, so the
-// same button arms itself and a second click deletes. Escape, or a press
-// anywhere else, cancels either one.
-export function DeleteButton({
-  label,
-  onDelete,
-  onArchive,
-}: {
-  label: string
-  onDelete: () => void
-  onArchive?: () => void
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const archiveRef = useRef<HTMLButtonElement>(null)
+// First click arms the button. A second click deletes the filed project.
+// Escape, or a press anywhere else, cancels it.
+export function DeleteButton({ label, onDelete }: { label: string; onDelete: () => void }) {
+  const [armed, setArmed] = useState(false)
+  const ref = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
-    if (!open) return
+    if (!armed) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') setArmed(false)
     }
     const onPointer = (event: PointerEvent) => {
       if (event.target instanceof Node && ref.current?.contains(event.target)) return
-      setOpen(false)
+      setArmed(false)
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('pointerdown', onPointer)
@@ -149,61 +148,25 @@ export function DeleteButton({
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('pointerdown', onPointer)
     }
-  }, [open])
-
-  useEffect(() => {
-    if (open && onArchive) archiveRef.current?.focus()
-  }, [open, onArchive])
-
-  function requestDelete() {
-    if (!open) {
-      setOpen(true)
-      return
-    }
-    if (!onArchive) onDelete()
-    else setOpen(false)
-  }
+  }, [armed])
 
   return (
-    <div className="remove-choice" ref={ref}>
-      <button
-        type="button"
-        className="btn btn-quiet"
-        data-armed={open ? 'true' : 'false'}
-        aria-expanded={onArchive ? open : undefined}
-        aria-haspopup={onArchive ? 'dialog' : undefined}
-        aria-label={!onArchive && open ? `Confirm delete ${label}` : `Delete ${label}`}
-        onClick={requestDelete}
-      >
-        {!onArchive && open ? 'Confirm' : 'Delete'}
-      </button>
-      {open && onArchive ? (
-        <div className="remove-menu" role="dialog" aria-label={`Remove ${label}`}>
-          <button
-            ref={archiveRef}
-            type="button"
-            aria-label={`Archive ${label}`}
-            onClick={() => {
-              setOpen(false)
-              onArchive()
-            }}
-          >
-            Archive
-          </button>
-          <button
-            type="button"
-            className="remove-delete"
-            aria-label={`Confirm delete ${label}`}
-            onClick={() => {
-              setOpen(false)
-              onDelete()
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      ) : null}
-    </div>
+    <button
+      ref={ref}
+      type="button"
+      className="btn btn-quiet"
+      data-armed={armed ? 'true' : 'false'}
+      aria-label={armed ? `Confirm delete ${label}` : `Delete ${label}`}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true)
+          return
+        }
+        onDelete()
+      }}
+    >
+      {armed ? 'Confirm' : 'Delete'}
+    </button>
   )
 }
 
@@ -255,9 +218,7 @@ export function FocusToggle({
   )
 }
 
-// Same control on both faces. The mark is an itemized list (three bullets and
-// three lines), distinct from the circular-arrow button that flips countdown
-// and stopwatch.
+// Swaps countdown and stopwatch. The mark is the two circling arrows.
 export function TurnButton({
   label,
   pressed = false,
@@ -269,16 +230,36 @@ export function TurnButton({
 }) {
   return (
     <button type="button" className="turn-card" aria-pressed={pressed} aria-label={label} onClick={onClick}>
-      <svg className="turn-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="5.5" cy="7" r="1.35" fill="currentColor" />
-        <circle cx="5.5" cy="12" r="1.35" fill="currentColor" />
-        <circle cx="5.5" cy="17" r="1.35" fill="currentColor" />
+      <svg className="flip-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path
-          d="M9.5 7H19.5M9.5 12H19.5M9.5 17H19.5"
+          d="M4.5 8.4c2.3-2.5 5.4-3.7 8.4-3.2 2.3.4 4.2 1.7 5.3 3.5"
           fill="none"
           stroke="currentColor"
           strokeWidth="1.7"
           strokeLinecap="round"
+        />
+        <path
+          d="M15.4 6.4 18.5 8.8 15.6 11.2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M19.5 15.6c-2.3 2.5-5.4 3.7-8.4 3.2-2.3-.4-4.2-1.7-5.3-3.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+        <path
+          d="M8.6 17.6 5.5 15.2 8.4 12.8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     </button>

@@ -1,13 +1,14 @@
 // One project card.
 //
-// The front is the dial: countdown or stopwatch, chosen by the button in the
-// middle of the ring. That flip is animated here and applied immediately in
-// `onFlip`, so the digits leave the previous face's time at once instead of
-// holding it for the length of the animation.
+// The front is the dial: countdown or stopwatch. The button in the middle of
+// the ring pauses and resumes. The arrow in the header swaps those two faces.
+// That swap is animated here and applied immediately in `onFlip`, so the
+// digits leave the previous face's time at once instead of holding it for the
+// length of the animation. Flip, beside Reset, turns the card over to the
+// kept-time stats.
 //
-// The back (kept time) is a separate 3D turn. Turning the card does not pause
-// the clock and does not count as a mode flip. `turned` is local UI state and
-// is not saved.
+// Turning the card does not pause the clock and does not count as a mode
+// swap. `turned` is local UI state and is not saved.
 //
 // The ring and the digits share one number from `displayClock`. On the
 // stopwatch the ring's lap is the countdown's `durationMs` and wraps; the
@@ -24,7 +25,7 @@ import {
 } from 'react'
 import type { Clock, ClockKind } from '../types'
 import { MAX_DURATION_MS, displayClock, formatClock } from '../time'
-import { ClockBack, DeleteButton, FocusToggle, TurnButton } from './ClockBack'
+import { ClockBack, FocusToggle, TurnButton } from './ClockBack'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
@@ -43,7 +44,6 @@ type ClockCardProps = {
   onPause: () => void
   onResume: () => void
   onReset: () => void
-  onDelete: () => void
   onIconChange: (icon: string) => void
   onTitleChange: (label: string) => void
   onTimeChange: (totalSeconds: number) => void
@@ -65,7 +65,6 @@ export function ClockCard({
   onPause,
   onResume,
   onReset,
-  onDelete,
   onIconChange,
   onTitleChange,
   onTimeChange,
@@ -395,8 +394,10 @@ export function ClockCard({
         </div>
         <div className="card-tools">
           <FocusToggle label={clock.label} pressed={clock.focus} onChange={onFocus} />
-          <TurnButton label={`Show kept time for ${clock.label}`} onClick={showBack} />
-          <DeleteButton label={clock.label} onDelete={onDelete} onArchive={onArchive} />
+          <TurnButton
+            label={countingUp ? `Count down for ${clock.label}` : `Count up for ${clock.label}`}
+            onClick={flipClock}
+          />
         </div>
       </div>
 
@@ -427,15 +428,15 @@ export function ClockCard({
                 />
               </svg>
             )}
-            {editingPart ? null : (
+            {editingPart || finished ? null : (
               <button
                 type="button"
-                className="mode-flip"
-                aria-pressed={countingUp}
-                aria-label={countingUp ? `Count down for ${clock.label}` : `Count up for ${clock.label}`}
-                onClick={flipClock}
+                className="dial-run"
+                data-running={clock.status === 'running' ? 'true' : 'false'}
+                aria-label={`${runLabel} ${clock.label}`}
+                onClick={clock.status === 'running' ? onPause : onResume}
               >
-                <FlipIcon />
+                {clock.status === 'running' ? <PauseIcon /> : <PlayIcon />}
               </button>
             )}
           </div>
@@ -471,35 +472,22 @@ export function ClockCard({
       </div>
 
       <div className="actions">
-        {finished ? (
-          <button
-            type="button"
-            className="btn btn-primary span"
-            aria-label={`Reset ${clock.label}`}
-            onClick={resetClock}
-          >
-            Reset
-          </button>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="btn btn-primary"
-              aria-label={`${runLabel} ${clock.label}`}
-              onClick={clock.status === 'running' ? onPause : onResume}
-            >
-              {runLabel}
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              aria-label={`Reset ${clock.label}`}
-              onClick={resetClock}
-            >
-              Reset
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          className="btn btn-secondary"
+          aria-label={`Show kept time for ${clock.label}`}
+          onClick={showBack}
+        >
+          Flip
+        </button>
+        <button
+          type="button"
+          className={finished ? 'btn btn-primary' : 'btn btn-secondary'}
+          aria-label={`Reset ${clock.label}`}
+          onClick={resetClock}
+        >
+          Reset
+        </button>
       </div>
           </div>
           <div inert={turned ? undefined : true}>
@@ -508,9 +496,7 @@ export function ClockCard({
               now={now}
               onKind={onKind}
               onTurn={showFront}
-              onFocus={onFocus}
               onArchive={onArchive}
-              onDelete={onDelete}
             />
           </div>
         </div>
@@ -529,38 +515,26 @@ const PART_LABEL: Record<TimePart, string> = {
   seconds: 'Seconds',
 }
 
-function FlipIcon() {
+function PlayIcon() {
   return (
-    <svg className="flip-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="dial-icon" viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M4.5 8.4c2.3-2.5 5.4-3.7 8.4-3.2 2.3.4 4.2 1.7 5.3 3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
+        d="M10.2 4.2Q6.2 4.2 6.2 8.2V15.8Q6.2 19.8 10.2 19.8L16.6 15.2Q21.8 12 16.6 8.8Z"
+        fill="currentColor"
       />
+    </svg>
+  )
+}
+
+function PauseIcon() {
+  return (
+    <svg className="dial-icon" viewBox="0 0 24 24" aria-hidden="true">
       <path
-        d="M15.4 6.4 18.5 8.8 15.6 11.2"
+        d="M8.2 5.4v13.2M15.8 5.4v13.2"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="3.4"
         strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M19.5 15.6c-2.3 2.5-5.4 3.7-8.4 3.2-2.3-.4-4.2-1.7-5.3-3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8.6 17.6 5.5 15.2 8.4 12.8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </svg>
   )

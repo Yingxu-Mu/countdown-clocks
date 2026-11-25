@@ -718,55 +718,6 @@ input::placeholder {
   flex: 0 0 auto;
 }
 
-.remove-choice {
-  position: relative;
-  z-index: 4;
-}
-
-.remove-menu {
-  position: absolute;
-  z-index: 4;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 148px;
-  padding: 6px;
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--bg-elev);
-  box-shadow: var(--shadow);
-}
-
-.remove-menu button {
-  appearance: none;
-  border: 0;
-  border-radius: 8px;
-  min-height: 36px;
-  padding: 0 12px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-
-.remove-menu button:hover,
-.remove-menu button:focus-visible {
-  background: var(--hover);
-}
-
-.remove-menu .remove-delete {
-  color: var(--warn);
-}
-
-.remove-menu .remove-delete:hover,
-.remove-menu .remove-delete:focus-visible {
-  background: var(--warn-soft);
-}
-
 .turn-card {
   appearance: none;
   width: 32px;
@@ -787,10 +738,16 @@ input::placeholder {
   color: var(--ink);
 }
 
-.turn-icon {
+.flip-icon {
   width: 18px;
   height: 18px;
   display: block;
+  transition: transform 0.35s ease;
+}
+
+.turn-card:hover .flip-icon,
+.turn-card:focus-visible .flip-icon {
+  transform: rotateY(180deg);
 }
 
 .archive-head {
@@ -918,6 +875,10 @@ input::placeholder {
   display: block;
 }
 
+.card-back .insight-kind {
+  margin-top: -4px;
+}
+
 .insight {
   flex: 1;
   display: flex;
@@ -926,7 +887,7 @@ input::placeholder {
   justify-content: center;
   gap: 12px;
   text-align: center;
-  padding: 8px 4px 4px;
+  padding: 0 4px 4px;
 }
 
 .insight-kind {
@@ -1492,42 +1453,35 @@ html[data-theme='signal'] .status {
   font-size: 14px;
 }
 
-.mode-flip {
+.dial-run {
   appearance: none;
   position: absolute;
   z-index: 2;
   left: 50%;
   top: 50%;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   margin: 0;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--muted);
+  color: var(--accent);
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
   cursor: pointer;
 }
 
-.mode-flip:hover,
-.mode-flip:focus-visible {
-  color: var(--ink);
-  background: var(--hover);
+.dial-run:hover,
+.dial-run:focus-visible {
+  background: var(--accent-soft);
 }
 
-.flip-icon {
-  width: 22px;
-  height: 22px;
+.face .dial-icon {
+  width: 52px;
+  height: 52px;
   display: block;
-  transition: transform 0.35s ease;
-}
-
-.mode-flip:hover .flip-icon,
-.mode-flip:focus-visible .flip-icon {
-  transform: rotateY(180deg);
 }
 
 .actions {

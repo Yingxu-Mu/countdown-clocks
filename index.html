@@ -13,30 +13,37 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,650&family=JetBrains+Mono:wght@500;600&family=Outfit:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,650&family=JetBrains+Mono:wght@500;600&family=Outfit:wght@400;500;600;700&family=Shantell+Sans:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <style>
       html { background: #f3efe6; }
       html[data-theme='signal'] { background: #101114; }
-      html[data-theme='tide'] { background: #e4f1ee; }
+      html[data-theme='tide'] { background: #d7ebe7; }
+      html[data-theme='ink'] { background: #161310; }
+      html[data-theme='chalk'] { background: #1c2822; }
+      html[data-theme='ember'] { background: #3b1520; }
+      html[data-theme='ledger'] { background: #f4f0e4; }
     </style>
     <script>
       ;(function () {
         try {
           var raw = localStorage.getItem('countdown-clocks.settings.v1')
           var theme = 'paper'
+          var colors = {
+            paper: '#f3efe6',
+            signal: '#101114',
+            tide: '#d7ebe7',
+            ink: '#161310',
+            chalk: '#1c2822',
+            ember: '#3b1520',
+            ledger: '#f4f0e4',
+          }
           if (raw) {
             var parsed = JSON.parse(raw)
-            if (
-              parsed &&
-              (parsed.theme === 'paper' || parsed.theme === 'signal' || parsed.theme === 'tide')
-            ) {
-              theme = parsed.theme
-            }
+            if (parsed && colors[parsed.theme]) theme = parsed.theme
           }
           document.documentElement.setAttribute('data-theme', theme)
-          var colors = { paper: '#f3efe6', signal: '#101114', tide: '#e4f1ee' }
           var meta = document.querySelector('meta[name="theme-color"]')
           if (meta) meta.setAttribute('content', colors[theme])
         } catch (error) {

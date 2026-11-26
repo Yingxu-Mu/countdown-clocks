@@ -5,7 +5,11 @@
 export const THEMES = [
   { id: 'paper', label: 'Paper', note: 'Warm ink on cream' },
   { id: 'signal', label: 'Signal', note: 'Acid type on a night grid' },
-  { id: 'tide', label: 'Tide', note: 'Sea glass and soft corners' },
+  { id: 'tide', label: 'Tide', note: 'Round cards on a wave field' },
+  { id: 'ink', label: 'Ink', note: 'Blots and a double rule' },
+  { id: 'chalk', label: 'Chalk', note: 'Dusty letters on a board' },
+  { id: 'ember', label: 'Ember', note: 'Cream cards over a fire glow' },
+  { id: 'ledger', label: 'Ledger', note: 'A red margin on blue rules' },
 ] as const
 
 export type ThemeId = (typeof THEMES)[number]['id']

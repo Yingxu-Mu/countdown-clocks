@@ -1,6 +1,6 @@
 /* Themes set the custom properties below on <html data-theme>. Layout does not
-   change between Paper, Signal, and Tide — only color, type, radius, shadow,
-   and the page background. */
+   change between themes — only color, type, radius, shadow, and the page
+   background. */
 
 :root {
   color-scheme: light;
@@ -28,6 +28,8 @@ body {
   background-color: var(--bg);
   background-image: var(--bg-image);
   background-size: var(--bg-size);
+  background-position: var(--bg-position, 0 0);
+  background-repeat: var(--bg-repeat, repeat);
   color: var(--ink);
   font-family: var(--font-ui);
   font-size: 16px;
@@ -119,20 +121,20 @@ html[data-theme='signal'] {
   --display-tracking: -0.06em;
   --time-tracking: -0.06em;
   --bg-image:
-    linear-gradient(to right, rgba(244, 241, 234, 0.045) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(244, 241, 234, 0.045) 1px, transparent 1px);
+    linear-gradient(to right, rgba(244, 241, 234, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(244, 241, 234, 0.08) 1px, transparent 1px);
   --bg-size: 56px 56px;
 }
 
 html[data-theme='tide'] {
   color-scheme: light;
-  --bg: #e4f1ee;
-  --bg-elev: #f7fffc;
+  --bg: #d7ebe7;
+  --bg-elev: #f4fffc;
   --field: #ffffff;
   --ink: #12312e;
   --muted: #3e5c58;
   --placeholder: #7d9692;
-  --line: #c9dfda;
+  --line: #b7d5ce;
   --accent: #0f5f59;
   --accent-hover: #0c4c48;
   --on-accent: #f3fffc;
@@ -141,19 +143,191 @@ html[data-theme='tide'] {
   --warn-soft: #fde8ee;
   --done: #0f5f59;
   --hover: rgba(18, 49, 46, 0.05);
-  --shadow: 0 16px 36px rgba(18, 70, 64, 0.08);
-  --radius: 28px;
+  --shadow: 0 16px 0 rgba(15, 95, 89, 0.08);
+  --radius: 36px;
   --control-radius: 999px;
-  --field-radius: 16px;
+  --field-radius: 20px;
   --font-ui: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-display: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-time: 'Figtree', 'Avenir Next', 'Segoe UI', sans-serif;
+  --display-style: normal;
+  --display-weight: 700;
+  --display-tracking: -0.05em;
+  --time-tracking: -0.05em;
+  --bg-image:
+    radial-gradient(130% 70px at 50% -20px, rgba(255, 255, 255, 0.85), transparent 72%),
+    radial-gradient(140% 90px at 50% 180px, rgba(15, 95, 89, 0.16), transparent 70%),
+    radial-gradient(150% 80px at 50% 420px, rgba(255, 255, 255, 0.55), transparent 70%),
+    radial-gradient(160% 110px at 50% 680px, rgba(15, 95, 89, 0.14), transparent 72%),
+    radial-gradient(150% 90px at 50% 980px, rgba(255, 255, 255, 0.4), transparent 70%);
+  --bg-size: auto;
+  --bg-repeat: no-repeat;
+}
+
+html[data-theme='ink'] {
+  color-scheme: dark;
+  --bg: #161310;
+  --bg-elev: #231c16;
+  --field: #1a1512;
+  --ink: #f4ece3;
+  --muted: #c4b5a4;
+  --placeholder: #8d7e6e;
+  --line: #6a5344;
+  --accent: #e0925a;
+  --accent-hover: #f0a56e;
+  --on-accent: #1c120c;
+  --accent-soft: #3d2c22;
+  --warn: #e07a6a;
+  --warn-soft: #3a241e;
+  --done: #d7b48a;
+  --hover: rgba(244, 236, 227, 0.06);
+  --shadow: none;
+  --radius: 4px;
+  --control-radius: 2px;
+  --field-radius: 2px;
+  --font-ui: 'Outfit', 'Avenir Next', 'Segoe UI', sans-serif;
   --font-display: 'Fraunces', 'Iowan Old Style', Palatino, serif;
   --font-time: 'Fraunces', 'Iowan Old Style', Palatino, serif;
   --display-style: normal;
   --display-weight: 650;
-  --display-tracking: -0.04em;
-  --time-tracking: -0.04em;
-  --bg-image: radial-gradient(1000px 480px at 0% -10%, rgba(15, 95, 89, 0.16), transparent 58%);
+  --display-tracking: 0.02em;
+  --time-tracking: -0.03em;
+  --bg-image:
+    radial-gradient(380px 260px at 8% 12%, rgba(224, 146, 90, 0.42), transparent 68%),
+    radial-gradient(240px 180px at 92% 6%, rgba(0, 0, 0, 0.55), transparent 70%),
+    radial-gradient(460px 340px at 78% 88%, rgba(92, 48, 22, 0.7), transparent 72%),
+    radial-gradient(180px 140px at 18% 78%, rgba(224, 146, 90, 0.22), transparent 70%);
   --bg-size: auto;
+  --bg-repeat: no-repeat;
+}
+
+html[data-theme='chalk'] {
+  color-scheme: dark;
+  --bg: #1c2822;
+  --bg-elev: #24342c;
+  --field: #1c2822;
+  --ink: #f6f1e4;
+  --muted: #d5d0c2;
+  --placeholder: #8f8a7c;
+  --line: rgba(246, 241, 228, 0.45);
+  --accent: #f0e2a0;
+  --accent-hover: #f7eec0;
+  --on-accent: #1c2822;
+  --accent-soft: #3a4632;
+  --warn: #f0b0a0;
+  --warn-soft: #3a2a28;
+  --done: #f0e2a0;
+  --hover: rgba(246, 241, 228, 0.08);
+  --shadow: none;
+  --radius: 18px;
+  --control-radius: 16px;
+  --field-radius: 12px;
+  --font-ui: 'Outfit', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-display: 'Shantell Sans', 'Segoe Print', cursive;
+  --font-time: 'Shantell Sans', 'Segoe Print', cursive;
+  --display-style: normal;
+  --display-weight: 700;
+  --display-tracking: -0.03em;
+  --time-tracking: -0.02em;
+  --bg-image:
+    radial-gradient(rgba(246, 241, 228, 0.28) 0.9px, transparent 1.1px),
+    radial-gradient(rgba(246, 241, 228, 0.12) 0.8px, transparent 1.1px);
+  --bg-size: 18px 18px, 31px 31px;
+  --bg-position: 0 0, 8px 13px;
+}
+
+html[data-theme='ember'] {
+  color-scheme: dark;
+  --bg: #3b1520;
+  --bg-elev: #fff1e8;
+  --field: #2e1018;
+  --ink: #fbeee8;
+  --muted: #e7c8bc;
+  --placeholder: #b48a80;
+  --line: #6e3342;
+  --accent: #ff6b4a;
+  --accent-hover: #ff8568;
+  --on-accent: #2a100c;
+  --accent-soft: #ffd4c8;
+  --warn: #ffb4a2;
+  --warn-soft: #5a2430;
+  --done: #ffb089;
+  --hover: rgba(251, 238, 232, 0.08);
+  --shadow: 6px 8px 0 #240910;
+  --radius: 28px;
+  --control-radius: 999px;
+  --field-radius: 16px;
+  --font-ui: 'Outfit', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', 'Iowan Old Style', Palatino, serif;
+  --font-time: 'Fraunces', 'Iowan Old Style', Palatino, serif;
+  --display-style: italic;
+  --display-weight: 650;
+  --display-tracking: -0.045em;
+  --time-tracking: -0.04em;
+  --bg-image:
+    radial-gradient(560px 340px at 88% -8%, rgba(255, 150, 60, 0.62), transparent 62%),
+    radial-gradient(420px 280px at 0% 108%, rgba(255, 70, 36, 0.4), transparent 58%),
+    radial-gradient(240px 180px at 48% 36%, rgba(255, 196, 90, 0.16), transparent 70%);
+  --bg-size: auto;
+  --bg-repeat: no-repeat;
+}
+
+/* The page stays wine and the cards stay cream, so the card redefines the
+   ink tokens it inherits. Selected controls inside a card use --bg for their
+   label, which has to be the cream of the card rather than the wine page. */
+html[data-theme='ember'] .card-face,
+html[data-theme='ember'] .archive-row {
+  --bg: #fff4ee;
+  --bg-elev: #fff4ee;
+  --field: #fffdfb;
+  --ink: #2c1614;
+  --muted: #7a5348;
+  --placeholder: #b0897c;
+  --line: #f0d5cb;
+  --hover: rgba(44, 22, 20, 0.06);
+  --accent-soft: #ffd4c8;
+  color: var(--ink);
+  background: var(--bg-elev);
+}
+
+html[data-theme='ledger'] {
+  color-scheme: light;
+  --bg: #f4f0e4;
+  --bg-elev: #fffdf8;
+  --field: #fffdf8;
+  --ink: #1a1a1a;
+  --muted: #3d3a34;
+  --placeholder: #8a8174;
+  --line: #1a1a1a;
+  --accent: #b42318;
+  --accent-hover: #8f1d14;
+  --on-accent: #fff8f6;
+  --accent-soft: #f8ddd8;
+  --warn: #b42318;
+  --warn-soft: #fde8e6;
+  --done: #1f6b45;
+  --hover: rgba(26, 26, 26, 0.06);
+  --shadow: none;
+  --radius: 0;
+  --control-radius: 0;
+  --field-radius: 0;
+  --font-ui: 'Outfit', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-display: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --font-time: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --display-style: normal;
+  --display-weight: 600;
+  --display-tracking: -0.06em;
+  --time-tracking: -0.06em;
+  --bg-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 31px,
+    rgba(36, 74, 150, 0.35) 31px 32px
+  );
+  --bg-size: auto;
+}
+
+html[data-theme='ledger'] body {
+  box-shadow: inset 11px 0 0 rgba(180, 35, 24, 0.8);
 }
 
 .shell {
@@ -218,7 +392,8 @@ html[data-theme='tide'] {
   background: var(--field);
 }
 
-.segment button {
+.segment button,
+.style-track button {
   appearance: none;
   border: 0;
   background: transparent;
@@ -231,18 +406,22 @@ html[data-theme='tide'] {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
+  flex: 0 0 auto;
 }
 
-.segment button:hover {
+.segment button:hover,
+.style-track button:hover {
   background: var(--hover);
 }
 
-.segment button[aria-checked='true'] {
+.segment button[aria-checked='true'],
+.style-track button[aria-checked='true'] {
   background: var(--ink);
   color: var(--bg);
 }
 
-.segment button[aria-checked='true']:hover {
+.segment button[aria-checked='true']:hover,
+.style-track button[aria-checked='true']:hover {
   background: var(--ink);
 }
 
@@ -263,6 +442,77 @@ html[data-theme='tide'] {
 
 .swatch-tide {
   background: #1f8a80;
+}
+
+.swatch-ink {
+  background: #e0925a;
+}
+
+.swatch-chalk {
+  background: #f0e2a0;
+}
+
+.swatch-ember {
+  background: #ff6b4a;
+}
+
+.swatch-ledger {
+  background: #b42318;
+}
+
+.style-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--control-radius);
+  background: var(--field);
+}
+
+.style-nudge {
+  appearance: none;
+  width: 20px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--control-radius) - 4px);
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.style-nudge:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.style-nudge:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.style-chevron {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.style-window {
+  overflow: hidden;
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.style-track {
+  display: flex;
+  gap: 4px;
+  width: max-content;
+  transform: translateX(calc(var(--style-offset, 0px) * -1));
+  transition: transform 200ms ease;
 }
 
 .stack {
@@ -961,7 +1211,26 @@ html[data-theme='signal'] .card[data-status='running'] {
 }
 
 html[data-theme='tide'] .card[data-status='running'] {
-  box-shadow: var(--shadow), inset 0 3px 0 var(--accent);
+  box-shadow: var(--shadow), inset 0 4px 0 var(--accent);
+}
+
+html[data-theme='ink'] .card-face,
+html[data-theme='ink'] .archive-row {
+  box-shadow:
+    inset 0 0 0 1px rgba(224, 146, 90, 0.7),
+    inset 0 0 0 5px #231c16,
+    inset 0 0 0 6px rgba(224, 146, 90, 0.45);
+}
+
+html[data-theme='chalk'] .card-face,
+html[data-theme='chalk'] .archive-row {
+  border-style: dashed;
+  border-width: 1.5px;
+}
+
+html[data-theme='ledger'] .card-face,
+html[data-theme='ledger'] .archive-row {
+  border-width: 2px;
 }
 
 .card-top {

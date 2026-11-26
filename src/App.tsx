@@ -29,7 +29,11 @@ import type { Clock, ClockKind, SoundId, ThemeId } from './types'
 const THEME_COLOR: Record<ThemeId, string> = {
   paper: '#f3efe6',
   signal: '#101114',
-  tide: '#e4f1ee',
+  tide: '#d7ebe7',
+  ink: '#161310',
+  chalk: '#1c2822',
+  ember: '#3b1520',
+  ledger: '#f7f4ec',
 }
 
 // The card being dragged, positioned `fixed` so the grid cell it left behind

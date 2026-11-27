@@ -124,11 +124,10 @@ export function todayAccrued(clock: Clock, now: number): number {
   return liveDays(clock, now)[dayKey(now)] ?? 0
 }
 
-// The second day line under the total.
-// Yesterday wins whenever that calendar day has time. Otherwise the latest
-// earlier day that has time is shown as "Last Friday" (2–6 days ago) or
-// "Last Nov 14". A clock with no earlier work still says "Yesterday" and 0,
-// so the line does not disappear on a brand-new project.
+// The day shown under Today. Yesterday wins whenever that calendar day has
+// time. Otherwise the latest earlier day that has time is shown as
+// "Last Friday" (2–6 days ago) or "Last Nov 14". A clock with no earlier work
+// still says "Yesterday" and 0, so the line does not disappear on a new project.
 export function priorDay(clock: Clock, now: number): { label: string; ms: number } {
   const days = liveDays(clock, now)
   const today = dayKey(now)

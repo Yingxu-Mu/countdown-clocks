@@ -1,10 +1,10 @@
 // The back of a project card.
 //
-// Accumulate is the default view: total running time (both directions), plus
-// today and the previous day that actually has time. Unbroken is the other
-// view: the rate of focused countdowns that reached zero without a pause,
-// reset, edit, or flip. The radio only switches the view. Accumulate records
-// every running minute. Unbroken records a countdown only while focus is on.
+// Accumulate is the default view. Today is the large figure, the previous day
+// sits under it, and the total is the smallest. Unbroken is the other view:
+// the rate of focused countdowns that reached zero without a pause, reset,
+// edit, or flip. The radio only switches the view. Accumulate records every
+// running minute. Unbroken records a countdown only while focus is on.
 //
 // An open attempt is shown as a provisional success so the rate moves as soon
 // as a clean focused run starts, and falls back if that run is interrupted.
@@ -21,9 +21,10 @@ type ClockBackProps = {
   onKind: (kind: ClockKind) => void
   onArchive: () => void
   onTurn: () => void
+  onTitleChange: (label: string) => void
 }
 
-export function ClockBack({ clock, now, onKind, onArchive, onTurn }: ClockBackProps) {
+export function ClockBack({ clock, now, onKind, onArchive, onTurn, onTitleChange }: ClockBackProps) {
   const unbroken = clock.kind === 'continuous'
   // Count the in-progress clean run as a success for the percentage only.
   // The stored `successes` value is not incremented until the countdown ends.
@@ -40,7 +41,7 @@ export function ClockBack({ clock, now, onKind, onArchive, onTurn }: ClockBackPr
       <div className="card-top">
         <div className="card-heading">
           <ClockIcon icon={clock.icon} className="card-icon" />
-          <h3 className="card-label">{clock.label}</h3>
+          <ClockTitle label={clock.label} onChange={onTitleChange} />
         </div>
       </div>
 
@@ -88,19 +89,17 @@ export function ClockBack({ clock, now, onKind, onArchive, onTurn }: ClockBackPr
           </>
         ) : (
           <>
-            <div className="kept">
-              <p className="insight-value">{formatKept(kept)}</p>
-              <p className="insight-caption">Total time</p>
+            <div className="kept kept-today">
+              <p className="insight-value">{formatKept(today)}</p>
+              <p className="insight-caption">Today</p>
             </div>
-            <div className="kept-days">
-              <div className="kept kept-prior">
-                <p className="insight-prior-value">{formatKept(today)}</p>
-                <p className="insight-caption">Today</p>
-              </div>
-              <div className="kept kept-prior">
-                <p className="insight-prior-value">{formatKept(prior.ms)}</p>
-                <p className="insight-caption">{prior.label}</p>
-              </div>
+            <div className="kept kept-yesterday">
+              <p className="insight-mid">{formatKept(prior.ms)}</p>
+              <p className="insight-caption">{prior.label}</p>
+            </div>
+            <div className="kept kept-total">
+              <p className="insight-small">{formatKept(kept)}</p>
+              <p className="insight-caption">Total time</p>
             </div>
           </>
         )}
@@ -124,6 +123,66 @@ export function ClockBack({ clock, now, onKind, onArchive, onTurn }: ClockBackPr
         </button>
       </div>
     </div>
+  )
+}
+
+export function ClockTitle({ label, onChange }: { label: string; onChange: (label: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(label)
+  const cancel = useRef(false)
+
+  function commit() {
+    if (cancel.current) {
+      cancel.current = false
+      return
+    }
+    const next = draft.trim().slice(0, 40)
+    setEditing(false)
+    if (next && next !== label) onChange(next)
+    else setDraft(label)
+  }
+
+  return (
+    <h3 className="card-label">
+      {editing ? (
+        <input
+          className="title-input"
+          value={draft}
+          maxLength={40}
+          aria-label={`Name for ${label}`}
+          autoFocus
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              commit()
+            }
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              cancel.current = true
+              setDraft(label)
+              setEditing(false)
+            }
+          }}
+        />
+      ) : (
+        <button
+          type="button"
+          className="title-button"
+          title={`Rename ${label}`}
+          aria-label={`Rename ${label}`}
+          onClick={() => {
+            setDraft(label)
+            setEditing(true)
+          }}
+        >
+          {label}
+        </button>
+      )}
+    </h3>
   )
 }
 

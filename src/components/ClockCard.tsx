@@ -25,7 +25,7 @@ import {
 } from 'react'
 import type { Clock, ClockKind } from '../types'
 import { MAX_DURATION_MS, displayClock, formatClock } from '../time'
-import { ClockBack, FocusToggle, TurnButton } from './ClockBack'
+import { ClockBack, ClockTitle, FocusToggle, TurnButton } from './ClockBack'
 import { ClockIcon } from './ClockIcon'
 import { IconChooser } from './IconChooser'
 import { NumberWheel } from './NumberWheel'
@@ -80,7 +80,6 @@ export function ClockCard({
   onReorderKeyDown,
 }: ClockCardProps) {
   const [editingIcon, setEditingIcon] = useState(false)
-  const [editingTitle, setEditingTitle] = useState(false)
   const [editingPart, setEditingPart] = useState<TimePart | null>(null)
   // `seenMode` lets us notice a countdown/stopwatch swap during render and
   // drop the open wheel before paint. Otherwise one frame would keep showing
@@ -93,8 +92,6 @@ export function ClockCard({
     setEditingPart(null)
     setDraftParts(splitTime(displayClock(clock, now), countingUp))
   }
-  const [titleDraft, setTitleDraft] = useState(clock.label)
-  const cancelTitle = useRef(false)
   const editorRef = useRef<HTMLDivElement>(null)
   const faceRef = useRef<HTMLDivElement>(null)
   const timeRef = useRef<HTMLDivElement>(null)
@@ -271,17 +268,6 @@ export function ClockCard({
     }
   }, [editingPart])
 
-  function commitTitle() {
-    if (cancelTitle.current) {
-      cancelTitle.current = false
-      return
-    }
-    const next = titleDraft.trim().slice(0, 40)
-    setEditingTitle(false)
-    if (next && next !== clock.label) onTitleChange(next)
-    else setTitleDraft(clock.label)
-  }
-
   return (
     <article
       className="card card-shell"
@@ -351,46 +337,7 @@ export function ClockCard({
               </div>
             ) : null}
           </div>
-          <h3 className="card-label">
-            {editingTitle ? (
-              <input
-                className="title-input"
-                value={titleDraft}
-                maxLength={40}
-                aria-label={`Name for ${clock.label}`}
-                autoFocus
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(event) => setTitleDraft(event.target.value)}
-                onBlur={commitTitle}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault()
-                    commitTitle()
-                  }
-                  if (event.key === 'Escape') {
-                    event.preventDefault()
-                    cancelTitle.current = true
-                    setTitleDraft(clock.label)
-                    setEditingTitle(false)
-                  }
-                }}
-              />
-            ) : (
-              <button
-                type="button"
-                className="title-button"
-                title={`Rename ${clock.label}`}
-                aria-label={`Rename ${clock.label}`}
-                onClick={() => {
-                  setTitleDraft(clock.label)
-                  setEditingTitle(true)
-                }}
-              >
-                {clock.label}
-              </button>
-            )}
-          </h3>
+          <ClockTitle label={clock.label} onChange={onTitleChange} />
         </div>
         <div className="card-tools">
           <FocusToggle label={clock.label} pressed={clock.focus} onChange={onFocus} />
@@ -497,6 +444,7 @@ export function ClockCard({
               onKind={onKind}
               onTurn={showFront}
               onArchive={onArchive}
+              onTitleChange={onTitleChange}
             />
           </div>
         </div>
